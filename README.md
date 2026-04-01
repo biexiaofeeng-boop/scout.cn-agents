@@ -7,6 +7,9 @@
 - `MediaCrawler/`：多平台内容采集（小红书/抖音/微博等）
 - `wechat-spider/`：微信公众号文章、评论、动态采集
 - `intel_hub/`：统一数据入湖、去重、重试、DLQ、调度、监控 API
+- `scout-hub/`：TypeScript 控制面（阶段 A+B）
+- `scout-media-agents/`：MediaCrawler 的 TS 适配工程
+- `scout-wchat-agents/`：wechat-spider 的 TS 适配工程
 - `ops/`：扫描、启动、状态、停机脚本
 - `docs/`：架构与运营文档
 
@@ -15,6 +18,7 @@
 基于现有采集能力，构建一个面向中文世界的情报 Agents 体系，形成从“采集-标准化-分析-告警-处置”的闭环。
 
 详见：`docs/AGENTS_SYSTEM_BLUEPRINT.md`
+迁移执行：`docs/TS_MIGRATION_STAGES.md`
 
 ## 运营最短路径
 
