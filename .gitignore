@@ -27,6 +27,7 @@ intel_hub/state/*.jsonl
 # Env files
 ops/env/*.env
 MediaCrawler/.env
+scout-deploy/env/*.env
 
 # Build artifacts
 **/*.egg-info/
