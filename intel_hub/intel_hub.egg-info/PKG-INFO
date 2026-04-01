@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: intel-hub
+Version: 0.1.0
+Summary: Unified intelligence ingestion for MediaCrawler and wechat-spider
+Requires-Python: >=3.11
+Requires-Dist: fastapi>=0.110.0
+Requires-Dist: uvicorn>=0.29.0
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: PyMySQL>=1.1.0

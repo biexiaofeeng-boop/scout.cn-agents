@@ -1,0 +1,22 @@
+version: 1
+watchlist:
+  keywords:
+    - 名称: "示例关键词"
+      level: high
+      notes: "高优先级事件词"
+  accounts:
+    - platform: wechat
+      account_id: "__biz_xxx"
+      level: high
+    - platform: xhs
+      account_id: "user_xxx"
+      level: medium
+rules:
+  risk_score:
+    keyword_hit: 30
+    repost_spike: 25
+    negative_sentiment: 20
+    account_weight: 25
+thresholds:
+  alert_score: 70
+  review_score: 50

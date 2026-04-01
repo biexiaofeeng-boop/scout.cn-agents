@@ -1,0 +1,17 @@
+[project]
+name = "intel-hub"
+version = "0.1.0"
+description = "Unified intelligence ingestion for MediaCrawler and wechat-spider"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110.0",
+  "uvicorn>=0.29.0",
+  "PyYAML>=6.0",
+  "PyMySQL>=1.1.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["intel_hub*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

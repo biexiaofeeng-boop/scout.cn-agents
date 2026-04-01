@@ -1,0 +1,29 @@
+# macOS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Local runtime and backups
+runtime/
+.git_backups/
+
+# Python artifacts
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.venv/
+
+# Local state and logs
+**/logs/
+**/*.log
+intel_hub/state/*.db
+intel_hub/state/*.jsonl
+
+# Node artifacts
+**/node_modules/
+
+# Env files
+ops/env/*.env
+MediaCrawler/.env
