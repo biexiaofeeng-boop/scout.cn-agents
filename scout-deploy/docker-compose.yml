@@ -2,21 +2,20 @@ name: scout-stack
 
 services:
   mariadb:
-    image: bitnami/mariadb:10.5-debian-10
+    image: mariadb:11.4
     restart: unless-stopped
     ports:
       - "127.0.0.1:3306:3306"
     env_file:
       - ./env/scout-wchat.env
     environment:
-      MARIADB_ROOT_USER: ${WECHAT_MYSQL_USER:-root}
       MARIADB_ROOT_PASSWORD: ${WECHAT_MYSQL_PASSWD:-changeme}
-      MARIADB_CHARACTER_SET: utf8mb4
-      MARIADB_COLLATE: utf8mb4_unicode_ci
+      MARIADB_DATABASE: ${WECHAT_MYSQL_DB:-test}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     volumes:
-      - ../wechat-spider/mariadb_data:/bitnami/mariadb
+      - ../wechat-spider/mariadb_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "/opt/bitnami/scripts/mariadb/healthcheck.sh"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p$$MARIADB_ROOT_PASSWORD --silent"]
       interval: 15s
       timeout: 5s
       retries: 8
@@ -89,6 +88,9 @@ services:
       - ../wechat-spider:/workspace/wechat-spider:ro
 
   scout-hub-scheduler:
+    build:
+      context: ../scout-hub
+      dockerfile: Dockerfile
     image: scout-hub:latest
     restart: unless-stopped
     depends_on:
