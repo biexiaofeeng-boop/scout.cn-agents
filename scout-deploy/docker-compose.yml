@@ -1,0 +1,110 @@
+name: scout-stack
+
+services:
+  mariadb:
+    image: bitnami/mariadb:10.5-debian-10
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3306:3306"
+    env_file:
+      - ./env/scout-wchat.env
+    environment:
+      MARIADB_ROOT_USER: ${WECHAT_MYSQL_USER:-root}
+      MARIADB_ROOT_PASSWORD: ${WECHAT_MYSQL_PASSWD:-changeme}
+      MARIADB_CHARACTER_SET: utf8mb4
+      MARIADB_COLLATE: utf8mb4_unicode_ci
+    volumes:
+      - ../wechat-spider/mariadb_data:/bitnami/mariadb
+    healthcheck:
+      test: ["CMD", "/opt/bitnami/scripts/mariadb/healthcheck.sh"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  wechat-spider:
+    build:
+      context: ../wechat-spider
+      dockerfile: Dockerfile
+    image: scout-wechat-spider:latest
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - ./env/scout-wchat.env
+    environment:
+      WECHAT_MYSQL_HOST: mariadb
+      WECHAT_MYSQL_PORT: 3306
+      WECHAT_MYSQL_DB: ${WECHAT_MYSQL_DB:-test}
+      WECHAT_MYSQL_USER: ${WECHAT_MYSQL_USER:-root}
+      WECHAT_MYSQL_PASSWD: ${WECHAT_MYSQL_PASSWD:-}
+      WECHAT_REDIS_HOST: redis
+      WECHAT_REDIS_PORT: 6379
+      WECHAT_REDIS_DB: 0
+      WECHAT_REDIS_PASSWD: ${WECHAT_REDIS_PASSWD:-}
+    command: ["wait-for-it", "mariadb:3306", "--", "python3", "./run.py"]
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ../wechat-spider/mitmproxy:/root/.mitmproxy
+      - ../wechat-spider/config:/app/wechat-spider/config
+    security_opt:
+      - no-new-privileges:true
+
+  scout-hub-api:
+    build:
+      context: ../scout-hub
+      dockerfile: Dockerfile
+    image: scout-hub:latest
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    env_file:
+      - ./env/scout-hub.env
+    environment:
+      SCOUT_PROJECT_ROOT: /workspace
+      SCOUT_STATE_DIR: /workspace/scout-hub/state
+      SCOUT_MEDIACRAWLER_ROOT: /workspace/MediaCrawler
+      SCOUT_WECHAT_ROOT: /workspace/wechat-spider
+      SCOUT_MONITOR_HOST: 0.0.0.0
+      SCOUT_MONITOR_PORT: 18080
+      WECHAT_MYSQL_HOST: mariadb
+      WECHAT_MYSQL_PORT: 3306
+    command: ["npx", "tsx", "src/cli.ts", "api", "--host", "0.0.0.0", "--port", "18080"]
+    ports:
+      - "127.0.0.1:18080:18080"
+    volumes:
+      - ../scout-hub/state:/workspace/scout-hub/state
+      - ../MediaCrawler:/workspace/MediaCrawler:ro
+      - ../wechat-spider:/workspace/wechat-spider:ro
+
+  scout-hub-scheduler:
+    image: scout-hub:latest
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    env_file:
+      - ./env/scout-hub.env
+    environment:
+      SCOUT_PROJECT_ROOT: /workspace
+      SCOUT_STATE_DIR: /workspace/scout-hub/state
+      SCOUT_MEDIACRAWLER_ROOT: /workspace/MediaCrawler
+      SCOUT_WECHAT_ROOT: /workspace/wechat-spider
+      WECHAT_MYSQL_HOST: mariadb
+      WECHAT_MYSQL_PORT: 3306
+    command: ["npx", "tsx", "src/cli.ts", "scheduler"]
+    volumes:
+      - ../scout-hub/state:/workspace/scout-hub/state
+      - ../MediaCrawler:/workspace/MediaCrawler:ro
+      - ../wechat-spider:/workspace/wechat-spider:ro

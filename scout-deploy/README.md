@@ -11,6 +11,11 @@
 - `status.sh`：查看进程与健康状态
 - `probe.sh`：执行 media/wchat 适配探测
 - `stop.sh`：停止后台服务
+- `docker-check.sh`：Docker 环境与配置检查
+- `docker-up.sh`：启动 Docker 编排栈
+- `docker-status.sh`：查看容器与健康状态
+- `docker-logs.sh`：查看容器日志
+- `docker-down.sh`：停止 Docker 栈
 - `env/*.env.example`：配置模板
 
 ## 快速使用
@@ -29,6 +34,19 @@ cd /Users/sourcefire/1data/scout-lab/scout-deploy
 ```bash
 SCOUT_WECHAT_ENABLE_DB=false ./run-once.sh
 SCOUT_WECHAT_ENABLE_DB=false ./start.sh
+```
+
+## Docker 模式（推荐）
+
+先看教程：`DOCKER_STEP_BY_STEP.md`
+
+```bash
+cd /Users/sourcefire/1data/scout-lab/scout-deploy
+./docker-check.sh
+./docker-up.sh
+./docker-status.sh
+./docker-logs.sh scout-hub-api
+./docker-down.sh
 ```
 
 ## 运行输出
