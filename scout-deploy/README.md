@@ -16,6 +16,8 @@
 - `docker-status.sh`：查看容器与健康状态
 - `docker-logs.sh`：查看容器日志
 - `docker-down.sh`：停止 Docker 栈
+- `seed-account-task.sh`：批量下发 `wechat_account_task`（初始化 `__biz` 任务）
+- `reset-pipeline-warnings.sh`：清理历史失败告警基线（保留备份）
 - `env/*.env.example`：配置模板
 
 ## 快速使用

@@ -27,6 +27,10 @@ cd /Users/sourcefire/1data/scout-lab/scout-deploy
 1. 两个文件里的 `WECHAT_MYSQL_PASSWD` 必须一致。
 2. 不要保留 `CHANGE_ME`。
 3. 如果先不接微信库，可设 `SCOUT_WECHAT_ENABLE_DB=false`。
+4. 推荐周期（可按需调）：
+   - `SCOUT_SCHEDULER_INTERVAL_SEC=120`（hub 调度周期）
+   - `WECHAT_MONITOR_INTERVAL_SEC=300`（公众号轮询周期）
+   - `WECHAT_NO_TASK_SLEEP_SEC=60`（无任务重试周期）
 
 ## Step 3: 启动前检查
 
@@ -64,6 +68,24 @@ cd /Users/sourcefire/1data/scout-lab/scout-deploy
 ./docker-logs.sh
 ./docker-logs.sh scout-hub-api
 ./docker-logs.sh wechat-spider
+```
+
+## Step 6.1: 初始化公众号任务（必须）
+
+```bash
+./seed-account-task.sh MzIxNzg1ODQ0MQ==
+```
+
+可一次传多个 `__biz`：
+
+```bash
+./seed-account-task.sh bizA bizB bizC
+```
+
+## Step 6.2: 清理历史告警基线（可选）
+
+```bash
+./reset-pipeline-warnings.sh
 ```
 
 ## Step 7: 停止服务

@@ -33,6 +33,7 @@ def _apply_env_overrides(cfg: dict) -> dict:
     mysqldb = conf.setdefault("mysqldb", {})
     redisdb = conf.setdefault("redisdb", {})
     spider = conf.setdefault("spider", {})
+    spider_interval = spider.setdefault("spider_interval", {})
 
     mysqldb["ip"] = os.getenv("WECHAT_MYSQL_HOST", mysqldb.get("ip"))
     mysqldb["port"] = int(os.getenv("WECHAT_MYSQL_PORT", mysqldb.get("port", 3306)))
@@ -47,6 +48,14 @@ def _apply_env_overrides(cfg: dict) -> dict:
 
     spider["service_host"] = os.getenv("WECHAT_SERVICE_HOST", spider.get("service_host", "0.0.0.0"))
     spider["service_port"] = int(os.getenv("WECHAT_SERVICE_PORT", spider.get("service_port", 8080)))
+    spider["monitor_interval"] = int(os.getenv("WECHAT_MONITOR_INTERVAL_SEC", spider.get("monitor_interval", 3600)))
+    spider["no_task_sleep_time"] = int(os.getenv("WECHAT_NO_TASK_SLEEP_SEC", spider.get("no_task_sleep_time", 3600)))
+    spider_interval["min_sleep_time"] = int(
+        os.getenv("WECHAT_SPIDER_MIN_SLEEP_SEC", spider_interval.get("min_sleep_time", 5))
+    )
+    spider_interval["max_sleep_time"] = int(
+        os.getenv("WECHAT_SPIDER_MAX_SLEEP_SEC", spider_interval.get("max_sleep_time", 10))
+    )
 
     return conf
 
