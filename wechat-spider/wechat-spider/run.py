@@ -10,7 +10,6 @@ Created on 2019/5/18 9:52 PM
 from core.capture_packet import WechatCapture
 from create_tables import create_table
 from mitmproxy import options
-from mitmproxy import proxy
 from mitmproxy.tools.dump import DumpMaster
 from config import config, IP
 
@@ -24,10 +23,8 @@ def start():
 
     myaddon = WechatCapture()
     opts = options.Options(listen_host=host, listen_port=port)
-    pconf = proxy.config.ProxyConfig(opts)
     m = DumpMaster(opts)
     m.options.set('flow_detail={mitm_log_level}'.format(mitm_log_level=config.get('mitm').get('log_level')))
-    m.server = proxy.server.ProxyServer(pconf)
     m.addons.add(myaddon)
 
     try:

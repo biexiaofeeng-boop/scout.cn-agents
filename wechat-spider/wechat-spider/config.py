@@ -32,6 +32,7 @@ def _apply_env_overrides(cfg: dict) -> dict:
     conf = deepcopy(cfg)
     mysqldb = conf.setdefault("mysqldb", {})
     redisdb = conf.setdefault("redisdb", {})
+    spider = conf.setdefault("spider", {})
 
     mysqldb["ip"] = os.getenv("WECHAT_MYSQL_HOST", mysqldb.get("ip"))
     mysqldb["port"] = int(os.getenv("WECHAT_MYSQL_PORT", mysqldb.get("port", 3306)))
@@ -43,6 +44,9 @@ def _apply_env_overrides(cfg: dict) -> dict:
     redisdb["port"] = int(os.getenv("WECHAT_REDIS_PORT", redisdb.get("port", 6379)))
     redisdb["db"] = int(os.getenv("WECHAT_REDIS_DB", redisdb.get("db", 0)))
     redisdb["passwd"] = os.getenv("WECHAT_REDIS_PASSWD", redisdb.get("passwd"))
+
+    spider["service_host"] = os.getenv("WECHAT_SERVICE_HOST", spider.get("service_host", "0.0.0.0"))
+    spider["service_port"] = int(os.getenv("WECHAT_SERVICE_PORT", spider.get("service_port", 8080)))
 
     return conf
 

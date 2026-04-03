@@ -1,7 +1,7 @@
 FROM python:3.9-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends psmisc netcat-openbsd && \
+    apt-get install -y --no-install-recommends build-essential psmisc netcat-openbsd && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

@@ -42,13 +42,10 @@ services:
     environment:
       WECHAT_MYSQL_HOST: mariadb
       WECHAT_MYSQL_PORT: 3306
-      WECHAT_MYSQL_DB: ${WECHAT_MYSQL_DB:-test}
-      WECHAT_MYSQL_USER: ${WECHAT_MYSQL_USER:-root}
-      WECHAT_MYSQL_PASSWD: ${WECHAT_MYSQL_PASSWD:-}
       WECHAT_REDIS_HOST: redis
       WECHAT_REDIS_PORT: 6379
       WECHAT_REDIS_DB: 0
-      WECHAT_REDIS_PASSWD: ${WECHAT_REDIS_PASSWD:-}
+      WECHAT_SERVICE_HOST: 0.0.0.0
     command:
       - /bin/sh
       - -lc
