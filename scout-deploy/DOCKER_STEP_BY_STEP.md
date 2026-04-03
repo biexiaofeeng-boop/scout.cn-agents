@@ -54,6 +54,10 @@ cd /Users/sourcefire/1data/scout-lab/scout-deploy
 ./docker-status.sh
 ```
 
+注意：
+- 只执行脚本命令本身，例如 `./docker-status.sh`。
+- 不要把输出里的 `[PASS] ...`、`[BAD] ...`、`SUMMARY ...` 再复制回终端执行。
+
 ## Step 6: 查看日志
 
 ```bash

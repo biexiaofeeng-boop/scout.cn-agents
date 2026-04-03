@@ -49,7 +49,10 @@ services:
       WECHAT_REDIS_PORT: 6379
       WECHAT_REDIS_DB: 0
       WECHAT_REDIS_PASSWD: ${WECHAT_REDIS_PASSWD:-}
-    command: ["wait-for-it", "mariadb:3306", "--", "python3", "./run.py"]
+    command:
+      - /bin/sh
+      - -lc
+      - until nc -z mariadb 3306; do echo "waiting mariadb..."; sleep 2; done; python3 ./run.py
     ports:
       - "127.0.0.1:8080:8080"
       - "127.0.0.1:8081:8081"
