@@ -1,0 +1,5 @@
+keyword_id,keyword,normalized_keyword,topic_cluster,trend_type,priority,confidence,suggested_platforms,query_variants,crawl_goal,risk_flag,notes
+INTEL-001,AI agents,AI agents,ai-automation,technology,high,high,xiaohongshu|douyin|bilibili|weibo|industry_news,AI agent|AI coding|智能体,trend_discovery,medium,Focus on toolchain shifts and creator narratives
+INTEL-002,美以伊朗,美以伊朗,middle-east,event,high,medium,douyin|bilibili|weibo,美以伊朗局势|以伊冲突,risk_monitoring,high,Monitor escalation narratives and misinformation risk
+INTEL-003,中东战况,中东战况,middle-east,event,medium,medium,douyin|bilibili|weibo,中东局势|战况更新,risk_monitoring,high,Track conflict framing and rapid narrative shifts
+INTEL-004,健康食品,健康食品,consumer-health,health,medium,high,xiaohongshu|douyin|bilibili,保健品|功能食品,narrative_monitoring,medium,Watch commercial claims and pseudo-science narratives

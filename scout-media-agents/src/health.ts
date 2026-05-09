@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 async function main(): Promise<void> {
-  const base = process.env.SCOUT_MEDIA_API_BASE || "http://127.0.0.1:8080";
+  const base = process.env.SCOUT_MEDIA_API_BASE || "http://127.0.0.1:18081";
   const apiKey = process.env.SCOUT_MEDIA_API_KEY || "";
 
   const headers: Record<string, string> = {};

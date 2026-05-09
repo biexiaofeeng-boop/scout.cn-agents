@@ -2,9 +2,13 @@
   "name": "scout-media-agents",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "health": "tsx src/health.ts"
+    "health": "tsx src/health.ts",
+    "check": "tsc --noEmit",
+    "backtest": "tsx src/cli.ts backtest",
+    "help": "tsx src/cli.ts help"
   },
   "dependencies": {
     "dotenv": "^16.4.5"
