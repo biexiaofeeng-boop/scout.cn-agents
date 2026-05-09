@@ -1,6 +1,6 @@
 import path from "node:path";
 import { buildExpansionRegistry } from "./keywordExpansion.js";
-import { collectLlmSupplements } from "./llmExpansion.js";
+import { collectLlmSupplements, LlmExpansionSnapshot } from "./llmExpansion.js";
 import { defaultSeedFile, loadSeedRegistry } from "./seedRegistry.js";
 import { resolveRuntimePolicy } from "./runtimePolicy.js";
 import { buildQueryScheduleStates } from "./queryScheduleState.js";
@@ -14,7 +14,18 @@ export type BacktestOptions = {
   seedFile?: string;
   stateDir?: string;
   runtimeProfile?: RuntimeProfileName;
+  skipLlm?: boolean;
 };
+
+function disabledLlmSnapshot(): LlmExpansionSnapshot {
+  return {
+    enabled: false,
+    model: "disabled",
+    baseUrl: "",
+    promptSelector: {},
+    supplements: {},
+  };
+}
 
 export async function runBacktest(options: BacktestOptions): Promise<BacktestReport> {
   const startedAt = new Date();
@@ -30,7 +41,7 @@ export async function runBacktest(options: BacktestOptions): Promise<BacktestRep
   await ensureDir(path.join(stateDir, "reports"));
 
   const seeds = await loadSeedRegistry(seedFile);
-  const llmExpansion = await collectLlmSupplements(options.projectRoot, seeds);
+  const llmExpansion = options.skipLlm ? disabledLlmSnapshot() : await collectLlmSupplements(options.projectRoot, seeds);
   const expansions = buildExpansionRegistry(seeds, startedAt, llmExpansion.supplements);
   const queryStates = buildQueryScheduleStates(seeds, expansions, startedAt);
 

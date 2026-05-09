@@ -3,7 +3,7 @@
 - 任务ID: SM1
 - 验收日期: 2026-05-09
 - 验收人: codex + sourcefire
-- 状态: CHECK
+- 状态: PASS
 
 ## 自动化检查
 | 用例ID | 目标 | 命令 | 预期 |
@@ -18,11 +18,11 @@
 | C08 | backtest 仍兼容 | `npm run backtest -- --skip-llm` | 正常输出报告 |
 
 ## 手工检查
-- [ ] registry/state 目录结构符合设计稿
-- [ ] topic -> seed -> expansion/query -> run 的映射关系清晰
-- [ ] 文档中的 agent 排班与实施顺序可执行
+- [x] registry/state 目录结构符合设计稿
+- [x] topic -> seed -> expansion/query -> run 的映射关系清晰
+- [x] 文档中的 agent 排班与实施顺序可执行
 
 ## 风险检查
-- [ ] 未引入对运行中 crawler 的破坏性依赖
-- [ ] `.env`、密钥、vendor 数据未被提交
-- [ ] 新增 state 样例不包含敏感数据
+- [x] 未引入对运行中 crawler 的破坏性依赖
+- [x] `.env`、密钥、vendor 数据未被提交
+- [x] 新增 state 样例不包含敏感数据

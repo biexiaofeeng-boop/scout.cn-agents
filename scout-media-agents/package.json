@@ -5,6 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
+    "cli": "tsx src/cli.ts",
     "health": "tsx src/health.ts",
     "check": "tsc --noEmit",
     "backtest": "tsx src/cli.ts backtest",

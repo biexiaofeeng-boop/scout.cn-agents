@@ -5,6 +5,7 @@ TypeScript control-plane for MediaCrawler-side operations.
 Current scope:
 - seed registry
 - expansion registry
+- topic / review / query-unit governance snapshots
 - durable query schedule state
 - runtime policy profile
 - fair platform planning with per-keyword caps
@@ -18,9 +19,20 @@ cd /Users/sourcefire/1data/scout-lab/scout-media-agents
 npm run check
 npm run backtest
 npm run backtest -- --profile debug_fast
+npm run backtest -- --skip-llm
+npm run cli -- topics:list
+npm run cli -- review:list --status pending
+npm run cli -- plan:next --limit 5
+npm run cli -- runs:list --limit 5
 ```
 
 Backtest output is written under `state/backtests/<run_id>/` by default.
+
+Governance snapshots are refreshed under `state/registries/` when governance CLI commands run:
+- `topics.snapshot.json`
+- `seeds.snapshot.json`
+- `review.snapshot.json`
+- `query-units.snapshot.json`
 
 Key artifacts:
 - `runtime/seeds.json`

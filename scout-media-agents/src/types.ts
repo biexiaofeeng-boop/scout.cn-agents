@@ -20,6 +20,81 @@ export type RegistryStatus = "approved" | "candidate" | "deprecated";
 export type SourceType = "manual" | "rule" | "llm";
 export type WatchlistTier = "watchlist-hot" | "watchlist-normal" | "discovery";
 export type QueryTaskStatus = "scheduled" | "completed" | "failed";
+export type TopicStatus = "draft" | "active" | "paused";
+export type SeedStatus = "active" | "paused";
+export type CrawlRunStatus = "planned" | "running" | "success" | "failed";
+export type CrawlRunType = "backtest" | "preview" | "live";
+
+export type TopicRegistryEntry = {
+  id: string;
+  name: string;
+  description: string;
+  status: TopicStatus;
+  priority: Priority;
+  platforms: string[];
+  owner: string;
+  seedKeywordIds: string[];
+};
+
+export type GovernanceSeed = {
+  id: string;
+  keywordId: string;
+  topicId: string;
+  keyword: string;
+  normalizedKeyword: string;
+  topicCluster: string;
+  trendType: TrendType;
+  priority: Priority;
+  confidence: Confidence;
+  crawlGoal: CrawlGoal;
+  riskFlag: RiskLevel;
+  platforms: string[];
+  sourceType: SourceType;
+  status: SeedStatus;
+  notes?: string;
+};
+
+export type ReviewDecision = {
+  expansionId: string;
+  decision: ReviewStatus;
+  actor: string;
+  note?: string;
+  decidedAt: string;
+};
+
+export type QueryUnit = {
+  id: string;
+  queryUnitKey: string;
+  topicId: string;
+  seedId: string;
+  seedKeywordId: string;
+  reviewedFromExpansionId?: string;
+  platform: string;
+  query: string;
+  reviewStatus: ReviewStatus;
+  enabled: boolean;
+  tier: WatchlistTier;
+  nextDueAt: string;
+  minRevisitIntervalMinutes: number;
+  retryCooldownMinutes: number;
+  riskLevel: RiskLevel;
+};
+
+export type CrawlRun = {
+  id: string;
+  runType: CrawlRunType;
+  queryUnitId?: string;
+  topicId?: string;
+  platform: string;
+  query: string;
+  plannedAt: string;
+  startedAt?: string;
+  endedAt?: string;
+  status: CrawlRunStatus;
+  recordsCollected: number;
+  runner: string;
+  note?: string;
+};
 
 export type SeedKeyword = {
   id: number;

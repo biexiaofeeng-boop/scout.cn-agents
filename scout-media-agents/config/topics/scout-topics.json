@@ -1,0 +1,42 @@
+[
+  {
+    "id": "topic-ai-agents",
+    "name": "AI agents",
+    "description": "追踪中文互联网对 AI agents、AI coding 与工作流自动化的讨论和迁移信号。",
+    "status": "active",
+    "priority": "high",
+    "platforms": ["xiaohongshu", "douyin", "bilibili", "weibo", "industry_news"],
+    "owner": "intel-ops",
+    "seedKeywordIds": ["INTEL-001"]
+  },
+  {
+    "id": "topic-middle-east-israel-iran",
+    "name": "美以伊朗",
+    "description": "监控美以伊朗局势升级、舆论歧义与误导性扩散。",
+    "status": "active",
+    "priority": "high",
+    "platforms": ["douyin", "bilibili", "weibo"],
+    "owner": "intel-ops",
+    "seedKeywordIds": ["INTEL-002"]
+  },
+  {
+    "id": "topic-middle-east-war",
+    "name": "中东战况",
+    "description": "跟踪战况进展、事件解释框架和高风险叙事变化。",
+    "status": "active",
+    "priority": "high",
+    "platforms": ["douyin", "bilibili", "weibo"],
+    "owner": "intel-ops",
+    "seedKeywordIds": ["INTEL-003"]
+  },
+  {
+    "id": "topic-health-food",
+    "name": "健康食品",
+    "description": "识别健康食品与保健品的宣传话术、伪科学风险与消费叙事。",
+    "status": "active",
+    "priority": "medium",
+    "platforms": ["xiaohongshu", "douyin", "bilibili"],
+    "owner": "intel-ops",
+    "seedKeywordIds": ["INTEL-004"]
+  }
+]
