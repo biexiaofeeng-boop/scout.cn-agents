@@ -5,7 +5,7 @@
 - 代码目录: `/Users/sourcefire/1data/scout-lab`
 - 目标模块: `/Users/sourcefire/1data/scout-lab/scout-media-agents`
 - 优先级: P0
-- 状态: CHECK
+- 状态: DONE
 
 ## 背景
 当前 `scout-media-agents` 已有回测与扩词基础，但还缺少可运营治理层。系统还不能稳定回答以下问题：
@@ -43,4 +43,4 @@
 - [x] governance schema 完成并可编译
 - [x] CLI 命令可用
 - [x] smoke 验证通过
-- [ ] 本地与远程 git 同步完成
+- [x] 本地与远程 git 同步完成
