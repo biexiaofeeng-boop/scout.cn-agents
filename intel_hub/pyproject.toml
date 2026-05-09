@@ -2,6 +2,7 @@
 name = "intel-hub"
 version = "0.1.0"
 description = "Unified intelligence ingestion for MediaCrawler and wechat-spider"
+license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.110.0",

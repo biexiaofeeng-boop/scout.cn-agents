@@ -33,7 +33,7 @@ def load_settings() -> Settings:
     mediacrawler_root = Path(
         os.getenv(
             "INTEL_MEDIACRAWLER_ROOT",
-            str(base_dir.parent / "MediaCrawler"),
+            str(base_dir.parent / "scout-vendor" / "mediacrawler"),
         )
     ).expanduser().resolve()
 

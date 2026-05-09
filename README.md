@@ -4,7 +4,7 @@
 
 ## 当前组成
 
-- `MediaCrawler/`：多平台内容采集（小红书/抖音/微博等）
+- `scout-vendor/mediacrawler/`：隔离引入的多平台 vendor crawler（小红书/抖音/微博等）
 - `wechat-spider/`：微信公众号文章、评论、动态采集
 - `intel_hub/`：统一数据入湖、去重、重试、DLQ、调度、监控 API
 - `scout-hub/`：TypeScript 控制面（阶段 A+B）
@@ -19,6 +19,13 @@
 
 详见：`docs/AGENTS_SYSTEM_BLUEPRINT.md`
 迁移执行：`docs/TS_MIGRATION_STAGES.md`
+
+## 许可证
+
+- 本仓库中由当前项目新增的控制面、适配层、部署脚本、文档与运维脚本，按 Apache 2.0 发布，见 `LICENSE`
+- `scout-vendor/mediacrawler/` 保留其上游 `NON-COMMERCIAL LEARNING LICENSE 1.1`，见 `scout-vendor/mediacrawler/LICENSE`
+- `wechat-spider/` 在当前快照里未发现明确的 Apache 兼容上游授权，不在本次 Apache 2.0 重授权范围内
+- 具体边界见 `NOTICE`
 
 ## 运营最短路径
 

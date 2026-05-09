@@ -86,7 +86,7 @@ if [ -f "$DEPLOY_DIR/env/scout-wchat.env" ]; then
 fi
 
 check_port 18080
-check_port 8080
+check_port 18081
 check_port 3306
 
 echo "========== SUMMARY =========="

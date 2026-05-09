@@ -4,7 +4,7 @@
 
 当前目录包含三个运行单元：
 
-- `/Users/sourcefire/1data/scout-lab/MediaCrawler`：多平台内容抓取与 WebUI/API。
+- `/Users/sourcefire/1data/scout-lab/scout-vendor/mediacrawler`：多平台内容抓取与 WebUI/API。
 - `/Users/sourcefire/1data/scout-lab/wechat-spider`：公众号抓取与动态数据入库（MySQL/Redis）。
 - `/Users/sourcefire/1data/scout-lab/intel_hub`：统一采集、去重入湖、重试、DLQ、调度、监控 API。
 
@@ -44,9 +44,9 @@ brew install python@3.11 docker curl
 
 关键项：
 
-- `MEDIACRAWLER_API_KEY` 必须改为强随机值。
-- `MEDIACRAWLER_API_AUTH_ENABLED=true`。
-- `MEDIACRAWLER_TRUSTED_HOSTS` 禁止 `*`。
+- `MEDIACRAWLER_API_PORT=18081`（当前默认值，可按需调整）。
+- `MEDIACRAWLER_API_KEY` 当前是预留字段，未来补鉴权层时会用到。
+- `MEDIACRAWLER_TRUSTED_HOSTS` 当前也是预留字段，不是现阶段主安全边界。
 - `WECHAT_MYSQL_PASSWD` 必须改为强口令。
 - `INTEL_WECHAT_ENABLE_DB=true`（联通微信数据时）。
 
@@ -70,7 +70,7 @@ brew install python@3.11 docker curl
 该脚本按顺序执行：
 
 1. 启动 `wechat-spider` docker 组件（mariadb/redis/wechat-spider）。
-2. 启动 `MediaCrawler API`（默认 8080）。
+2. 启动 `MediaCrawler API`（默认 18081）。
 3. 启动 `intel_hub scheduler`（默认每 300 秒）。
 4. 启动 `intel_hub monitor API`（默认 18080）。
 
@@ -85,7 +85,7 @@ brew install python@3.11 docker curl
 关键健康检查：
 
 ```bash
-curl -sS http://127.0.0.1:8080/api/health
+curl -sS http://127.0.0.1:18081/api/health
 curl -sS http://127.0.0.1:18080/health
 curl -sS http://127.0.0.1:18080/alerts
 curl -sS http://127.0.0.1:18080/runs

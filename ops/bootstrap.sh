@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OPS_ENV_DIR="$ROOT_DIR/ops/env"
-MEDIA_DIR="$ROOT_DIR/MediaCrawler"
+MEDIA_DIR="$ROOT_DIR/scout-vendor/mediacrawler"
 INTEL_DIR="$ROOT_DIR/intel_hub"
 RUNTIME_DIR="$ROOT_DIR/runtime"
 

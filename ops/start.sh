@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OPS_ENV_DIR="$ROOT_DIR/ops/env"
-MEDIA_DIR="$ROOT_DIR/MediaCrawler"
+MEDIA_DIR="$ROOT_DIR/scout-vendor/mediacrawler"
 WECHAT_DIR="$ROOT_DIR/wechat-spider"
 INTEL_DIR="$ROOT_DIR/intel_hub"
 RUNTIME_DIR="$ROOT_DIR/runtime"
@@ -38,10 +38,16 @@ start_process() {
   echo "[OK] started $name (pid=$pid)"
 }
 
+docker_compose_ready() {
+  command -v docker >/dev/null 2>&1 &&
+    docker compose version >/dev/null 2>&1 &&
+    docker info >/dev/null 2>&1
+}
+
 load_env "$OPS_ENV_DIR/mediacrawler.env"
 load_env "$OPS_ENV_DIR/intel_hub.env"
 
-if command -v docker >/dev/null 2>&1; then
+if docker_compose_ready; then
   if docker compose version >/dev/null 2>&1; then
     docker compose --env-file "$OPS_ENV_DIR/wechat.env" -f "$WECHAT_DIR/docker-compose.yml" up -d mariadb redis wechat-spider
     echo "[OK] wechat-spider stack started by docker compose"
@@ -51,12 +57,16 @@ if command -v docker >/dev/null 2>&1; then
   else
     echo "[WARN] docker compose not found, skipped wechat-spider stack"
   fi
+elif command -v docker >/dev/null 2>&1; then
+  echo "[WARN] docker daemon unavailable, skipped wechat-spider stack"
 else
   echo "[WARN] docker not found, skipped wechat-spider stack"
 fi
 
 MEDIA_PY="$MEDIA_DIR/.venv/bin/python"
 INTEL_PY="$INTEL_DIR/.venv/bin/python"
+MEDIA_API_HOST="${MEDIACRAWLER_API_HOST:-127.0.0.1}"
+MEDIA_API_PORT="${MEDIACRAWLER_API_PORT:-18081}"
 
 if [ ! -x "$MEDIA_PY" ]; then
   echo "[ERROR] missing MediaCrawler venv: $MEDIA_PY"

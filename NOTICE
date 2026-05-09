@@ -1,0 +1,29 @@
+scout.cn-agents licensing notice
+
+This repository contains a mix of original work and third-party code.
+
+Apache-2.0 applies to the original control-plane, integration, deployment,
+documentation, and operations work in this repository, including but not
+limited to:
+
+- /Users/sourcefire/1data/scout-lab/README.md
+- /Users/sourcefire/1data/scout-lab/docs
+- /Users/sourcefire/1data/scout-lab/ops
+- /Users/sourcefire/1data/scout-lab/agents
+- /Users/sourcefire/1data/scout-lab/scout-hub
+- /Users/sourcefire/1data/scout-lab/scout-media-agents
+- /Users/sourcefire/1data/scout-lab/scout-wchat-agents
+- /Users/sourcefire/1data/scout-lab/scout-deploy
+- /Users/sourcefire/1data/scout-lab/intel_hub
+
+Excluded directories keep their own licensing status and are not relicensed by
+the root Apache-2.0 file:
+
+- /Users/sourcefire/1data/scout-lab/scout-vendor/mediacrawler
+  The bundled upstream project ships its own NON-COMMERCIAL LEARNING LICENSE
+  1.1 in /Users/sourcefire/1data/scout-lab/scout-vendor/mediacrawler/LICENSE.
+
+- /Users/sourcefire/1data/scout-lab/wechat-spider
+  No explicit Apache-compatible upstream license grant is declared in this
+  snapshot. Treat it as separately licensed code and confirm redistribution and
+  commercial-use rights before external distribution.

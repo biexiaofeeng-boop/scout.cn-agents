@@ -35,7 +35,7 @@ export function loadSettings(cwd: string = process.cwd()): Settings {
   const stateDir = path.resolve(process.env.SCOUT_STATE_DIR || path.join(projectRoot, "scout-hub", "state"));
 
   const mediaCrawlerRoot = path.resolve(
-    process.env.SCOUT_MEDIACRAWLER_ROOT || path.join(projectRoot, "MediaCrawler"),
+    process.env.SCOUT_MEDIACRAWLER_ROOT || path.join(projectRoot, "scout-vendor", "mediacrawler"),
   );
   const wechatRoot = path.resolve(process.env.SCOUT_WECHAT_ROOT || path.join(projectRoot, "wechat-spider"));
 

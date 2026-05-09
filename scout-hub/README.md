@@ -20,7 +20,7 @@ npm run scheduler
 Copy `.env.example` to `.env` if needed.
 
 - `SCOUT_PROJECT_ROOT` default: parent dir of `scout-hub`
-- `SCOUT_MEDIACRAWLER_ROOT` default: `../MediaCrawler`
+- `SCOUT_MEDIACRAWLER_ROOT` default: `../scout-vendor/mediacrawler`
 - `SCOUT_WECHAT_ROOT` default: `../wechat-spider`
 - `SCOUT_WECHAT_ENABLE_DB` default: `true`
 - `SCOUT_BATCH_SIZE` default: `500`

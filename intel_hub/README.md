@@ -35,7 +35,7 @@ python -m intel_hub.monitor_api --host 127.0.0.1 --port 18080
 ## Environment Variables
 
 - `INTEL_DB_PATH` (default: `state/intel.db`)
-- `INTEL_MEDIACRAWLER_ROOT` (default: `../MediaCrawler`)
+- `INTEL_MEDIACRAWLER_ROOT` (default: `../scout-vendor/mediacrawler`)
 - `INTEL_WECHAT_ROOT` (default: `../wechat-spider`)
 - `INTEL_WECHAT_ENABLE_DB` (default: `true`)
 - `INTEL_BATCH_SIZE` (default: `500`)

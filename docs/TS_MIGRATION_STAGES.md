@@ -13,7 +13,7 @@
 完成标准：
 
 1. 三个 TS 项目可独立安装依赖并运行基础命令。
-2. 不改动 `MediaCrawler/` 和 `wechat-spider/` 的核心逻辑。
+2. 不改动 `scout-vendor/mediacrawler/` 和 `wechat-spider/` 的核心逻辑。
 3. 所有输出数据可回溯到原始数据源。
 
 ## M1: 阶段 A（TS Hub 可运行）
@@ -37,7 +37,7 @@ npm run api
 
 完成标准：
 
-1. `MediaCrawler` 数据目录可被 `scout-hub` 增量消费。
+1. `scout-vendor/mediacrawler` 数据目录可被 `scout-hub` 增量消费。
 2. `wechat-spider` MySQL 数据可被 `scout-hub` 增量消费。
 3. 失败事件进入 DLQ，不影响主流程持续运行。
 

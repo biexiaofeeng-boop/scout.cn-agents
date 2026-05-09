@@ -6,6 +6,7 @@
 # Local runtime and backups
 runtime/
 .git_backups/
+obscura/
 
 # Python artifacts
 **/__pycache__/
@@ -26,8 +27,14 @@ intel_hub/state/*.jsonl
 
 # Env files
 ops/env/*.env
-MediaCrawler/.env
 scout-deploy/env/*.env
+scout-vendor/mediacrawler/.env
+
+# Vendor runtime artifacts
+scout-vendor/mediacrawler/browser_data/
+scout-vendor/mediacrawler/data/
+scout-vendor/mediacrawler/cache/*.db
+scout-vendor/mediacrawler/cache/*.sqlite*
 
 # Build artifacts
 **/*.egg-info/
