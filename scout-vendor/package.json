@@ -7,7 +7,8 @@
   "scripts": {
     "check": "tsc --noEmit",
     "providers:list": "tsx src/cli.ts providers:list",
-    "collect": "tsx src/cli.ts collect"
+    "collect": "tsx src/cli.ts collect",
+    "normalize": "tsx src/cli.ts normalize"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

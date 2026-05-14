@@ -70,6 +70,17 @@ Downstream normalization should produce product-safe outputs under:
 /Users/sourcefire/1data/scout/topics/<vertical>/<topic-id>/handoff/
 ```
 
+Current normalization outputs:
+
+```text
+/Users/sourcefire/1data/scout/topics/<vertical>/<topic-id>/normalized/evidence.jsonl
+/Users/sourcefire/1data/scout/topics/<vertical>/<topic-id>/normalized/evidence.manifest.json
+/Users/sourcefire/1data/scout/topics/<vertical>/<topic-id>/handoff/gamelens/evidence.json
+/Users/sourcefire/1data/scout/topics/<vertical>/<topic-id>/reports/latest.md
+```
+
+`handoff/gamelens/evidence.json` uses `gamelens_evidence_handoff_v1` and contains GameLens-compatible `EvidenceItem` records. Steam store-search records are mapped to GameLens source `manual` while preserving `scoutProvider=steam` and `scoutSource=steam_store_search` in metrics.
+
 ## Commands
 
 Install and type-check:
@@ -120,6 +131,24 @@ Dry run without network collection:
 
 ```bash
 npm run collect -- --provider steam --topic-id game-survivor-like-idle-rpg --query "survivor" --limit 3 --dry-run
+```
+
+Normalize a topic and generate GameLens handoff plus topic report:
+
+```bash
+npm run normalize -- --topic-id game-survivor-like-idle-rpg --vertical game
+```
+
+Normalize only selected providers:
+
+```bash
+npm run normalize -- --topic-id game-survivor-like-idle-rpg --vertical game --providers steam,reddit
+```
+
+Include dry-run records only when explicitly needed for pipeline testing:
+
+```bash
+npm run normalize -- --topic-id game-survivor-like-idle-rpg --vertical game --include-dry-run
 ```
 
 ## Open Source Crawler Policy

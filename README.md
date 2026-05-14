@@ -138,12 +138,16 @@ npm run providers:list
 npm run collect -- --provider steam --topic-id game-survivor-like-idle-rpg --query "survivor" --limit 3
 npm run collect -- --provider reddit --topic-id game-survivor-like-idle-rpg --query "survivor-like idle RPG" --limit 3
 YOUTUBE_API_KEY=... npm run collect -- --provider youtube --topic-id game-survivor-like-idle-rpg --query "survivor-like idle RPG" --limit 3
+npm run normalize -- --topic-id game-survivor-like-idle-rpg --vertical game
 ```
 
 Default runtime output:
 
 ```text
 /Users/sourcefire/1data/scout/topics/<vertical>/<topic-id>/raw/<provider>/
+/Users/sourcefire/1data/scout/topics/<vertical>/<topic-id>/normalized/evidence.jsonl
+/Users/sourcefire/1data/scout/topics/<vertical>/<topic-id>/handoff/gamelens/evidence.json
+/Users/sourcefire/1data/scout/topics/<vertical>/<topic-id>/reports/latest.md
 ```
 
 ### Start the Docker runtime stack

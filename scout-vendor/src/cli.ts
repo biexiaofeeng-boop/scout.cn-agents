@@ -1,4 +1,5 @@
 import { collect } from "./collector.js";
+import { normalizeTopic } from "./normalizer.js";
 import { DATA_PROVIDERS } from "./providers.js";
 import type { CollectionRequest } from "./types.js";
 import { defaultRuntimeRoot } from "./utils.js";
@@ -31,6 +32,10 @@ function stringOption(options: Options, key: string, fallback = ""): string {
 function numberOption(options: Options, key: string, fallback: number): number {
   const parsed = Number(stringOption(options, key));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function listOption(options: Options, key: string): string[] {
+  return stringOption(options, key).split(",").map((item) => item.trim()).filter(Boolean);
 }
 
 function requestFromOptions(options: Options): CollectionRequest {
@@ -73,6 +78,30 @@ async function main(): Promise<void> {
     }, null, 2));
     return;
   }
+  if (command === "normalize") {
+    const topicId = stringOption(options, "topic-id");
+    if (!topicId) throw new Error("--topic-id is required");
+    const result = await normalizeTopic({
+      topicId,
+      vertical: stringOption(options, "vertical", "game"),
+      runtimeRoot: stringOption(options, "runtime-root", defaultRuntimeRoot()),
+      providers: listOption(options, "providers"),
+      gameIds: listOption(options, "game-ids"),
+      includeDryRun: options["include-dry-run"] === true,
+    });
+    console.log(JSON.stringify({
+      topicId: result.topicId,
+      evidenceCount: result.evidenceCount,
+      rawRecordCount: result.rawRecordCount,
+      skippedDryRunCount: result.skippedDryRunCount,
+      duplicateCount: result.duplicateCount,
+      parseErrorCount: result.parseErrorCount,
+      normalizedPath: result.normalizedPath,
+      gameLensHandoffPath: result.gameLensHandoffPath,
+      reportPath: result.reportPath,
+    }, null, 2));
+    return;
+  }
   if (command === "help") {
     console.log([
       "scout-vendor commands:",
@@ -81,6 +110,7 @@ async function main(): Promise<void> {
       "  collect --provider steam --topic-id <id> --query <q> --app-id <steam_app_id>",
       "  collect --provider reddit --topic-id <id> --query <q> [--subreddit <name>]",
       "  collect ... [--runtime-root /Users/sourcefire/1data/scout] [--dry-run]",
+      "  normalize --topic-id <id> [--vertical game] [--providers steam,reddit,youtube] [--game-ids <id1,id2>] [--include-dry-run]",
     ].join("\n"));
     return;
   }
