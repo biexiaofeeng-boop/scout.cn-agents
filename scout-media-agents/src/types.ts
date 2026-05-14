@@ -24,6 +24,8 @@ export type TopicStatus = "draft" | "active" | "paused";
 export type SeedStatus = "active" | "paused";
 export type CrawlRunStatus = "planned" | "running" | "success" | "failed";
 export type CrawlRunType = "backtest" | "preview" | "live";
+export type TopicVertical = "game" | "finance" | "ai" | "consumer" | "geo_history" | "general";
+export type TopicIntent = "market_scan" | "competitor_watch" | "player_pain" | "creative_hook" | "risk" | "trend_watch";
 
 export type TopicRegistryEntry = {
   id: string;
@@ -31,7 +33,13 @@ export type TopicRegistryEntry = {
   description: string;
   status: TopicStatus;
   priority: Priority;
+  vertical?: TopicVertical;
+  market?: string;
+  language?: string;
+  intent?: TopicIntent;
+  refreshCadence?: string;
   platforms: string[];
+  dataSources?: string[];
   owner: string;
   seedKeywordIds: string[];
 };
@@ -49,6 +57,9 @@ export type GovernanceSeed = {
   crawlGoal: CrawlGoal;
   riskFlag: RiskLevel;
   platforms: string[];
+  vertical?: TopicVertical;
+  market?: string;
+  language?: string;
   sourceType: SourceType;
   status: SeedStatus;
   notes?: string;

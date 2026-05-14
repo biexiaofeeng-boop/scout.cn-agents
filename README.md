@@ -4,7 +4,7 @@
 
 ## 当前组成
 
-- `scout-vendor/mediacrawler/`：隔离引入的多平台 vendor crawler（小红书/抖音/微博等）
+- `scout-vendor/`：统一数据获取边界，包含 MediaCrawler、Steam/YouTube/Reddit provider wrappers 等
 - `wechat-spider/`：微信公众号文章、评论、动态采集
 - `intel_hub/`：统一数据入湖、去重、重试、DLQ、调度、监控 API
 - `scout-hub/`：TypeScript 控制面（阶段 A+B）
@@ -15,10 +15,11 @@
 
 ## 目标
 
-基于现有采集能力，构建一个面向中文世界的情报 Agents 体系，形成从“采集-标准化-分析-告警-处置”的闭环。
+基于现有采集能力，构建一个面向多业务领域的情报 Agents 体系，形成从“topic-采集-标准化-分析-告警-处置/handoff”的闭环。
 
 详见：`docs/AGENTS_SYSTEM_BLUEPRINT.md`
 迁移执行：`docs/TS_MIGRATION_STAGES.md`
+运行态与 vendor 边界：`docs/SCOUT_RUNTIME_AND_VENDOR_STRATEGY.md`
 
 ## 许可证
 

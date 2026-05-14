@@ -16,6 +16,9 @@ export const PLATFORM_LABEL_TO_CODE: Record<string, string> = {
   ks: "ks",
   tieba: "tieba",
   zhihu: "zhihu",
+  steam: "steam",
+  youtube: "youtube",
+  reddit: "reddit",
 };
 
 export const PLATFORM_CODE_TO_LABEL: Record<string, string> = {
@@ -26,9 +29,12 @@ export const PLATFORM_CODE_TO_LABEL: Record<string, string> = {
   ks: "kuaishou",
   tieba: "tieba",
   zhihu: "zhihu",
+  steam: "steam",
+  youtube: "youtube",
+  reddit: "reddit",
 };
 
-const REFERENCE_SOURCES = new Set(["industry_news", "news_search"]);
+const REFERENCE_SOURCES = new Set(["industry_news", "news_search", "google_trends"]);
 
 const GOAL_SUFFIXES: Record<string, Record<string, Array<[ExpansionRegistryEntry["expansionType"], string]>>> = {
   trend_discovery: {
@@ -36,12 +42,18 @@ const GOAL_SUFFIXES: Record<string, Record<string, Array<[ExpansionRegistryEntry
     douyin: [["narrative_probe", "热议"], ["audience_language", "解读"]],
     bilibili: [["analysis_probe", "解读"], ["analysis_probe", "分析"]],
     weibo: [["narrative_probe", "热搜"], ["narrative_probe", "发酵"]],
+    steam: [["analysis_probe", "reviews"], ["audience_language", "discussion"]],
+    youtube: [["analysis_probe", "gameplay"], ["audience_language", "reaction"]],
+    reddit: [["audience_language", "discussion"], ["risk_probe", "complaints"]],
   },
   narrative_monitoring: {
     xiaohongshu: [["audience_language", "观点"], ["audience_language", "分享"]],
     douyin: [["audience_language", "说法"], ["narrative_probe", "热议"]],
     bilibili: [["analysis_probe", "评论"], ["analysis_probe", "观察"]],
     weibo: [["narrative_probe", "回应"], ["narrative_probe", "观点"]],
+    steam: [["audience_language", "review"], ["risk_probe", "negative reviews"]],
+    youtube: [["audience_language", "comments"], ["analysis_probe", "review"]],
+    reddit: [["audience_language", "player discussion"], ["risk_probe", "complaints"]],
   },
   risk_monitoring: {
     xiaohongshu: [["risk_probe", "争议"], ["risk_probe", "避雷"]],
@@ -81,6 +93,9 @@ const TREND_TYPE_SUFFIXES: Record<string, Record<string, Array<[ExpansionRegistr
     douyin: [["market_probe", "销量"], ["market_probe", "趋势"]],
     bilibili: [["analysis_probe", "市场"], ["analysis_probe", "盘点"]],
     weibo: [["market_probe", "热度"], ["market_probe", "行业"]],
+    steam: [["market_probe", "similar games"], ["market_probe", "reviews"]],
+    youtube: [["market_probe", "trailer"], ["market_probe", "gameplay"]],
+    reddit: [["market_probe", "recommendations"], ["market_probe", "similar games"]],
   },
   health: {
     xiaohongshu: [["domain_constraint", "成分"], ["risk_probe", "风险"]],

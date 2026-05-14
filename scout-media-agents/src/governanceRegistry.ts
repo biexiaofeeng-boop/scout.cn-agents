@@ -96,6 +96,9 @@ function buildGovernanceSeeds(rawSeeds: SeedKeyword[], topics: TopicRegistryEntr
       crawlGoal: seed.crawlGoal,
       riskFlag: seed.riskFlag,
       platforms: [...seed.suggestedPlatforms],
+      vertical: topic?.vertical || "general",
+      market: topic?.market,
+      language: topic?.language,
       sourceType: "manual",
       status: "active",
       notes: seed.notes,
@@ -234,10 +237,15 @@ export function listTopicSummaries(context: GovernanceContext): Array<Record<str
       status: topic.status,
       priority: topic.priority,
       owner: topic.owner,
+      vertical: topic.vertical || "general",
+      market: topic.market,
+      language: topic.language,
+      intent: topic.intent,
       seedCount: seeds.length,
       approvedQueryUnitCount: queryUnits.length,
       pendingReviewCount: pendingReviews,
       platforms: topic.platforms,
+      dataSources: topic.dataSources || topic.platforms,
     };
   });
 }

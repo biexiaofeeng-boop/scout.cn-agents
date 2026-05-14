@@ -47,6 +47,24 @@ const PROFILES: Record<RuntimeProfileName, PolicyProfile> = {
         taskDelaySeconds: 8,
         operatorNote: "Use wb for rapid narrative shifts and response tracking.",
       },
+      steam: {
+        perPlatformLimit: 3,
+        headless: true,
+        taskDelaySeconds: 2,
+        operatorNote: "Steam uses public endpoints; prefer reviews and store search for game intelligence.",
+      },
+      youtube: {
+        perPlatformLimit: 3,
+        headless: true,
+        taskDelaySeconds: 2,
+        operatorNote: "YouTube should use official Data API with quota-aware collection.",
+      },
+      reddit: {
+        perPlatformLimit: 3,
+        headless: true,
+        taskDelaySeconds: 2,
+        operatorNote: "Reddit starts with public search and can move to OAuth/PRAW when needed.",
+      },
     },
   },
   debug_fast: {

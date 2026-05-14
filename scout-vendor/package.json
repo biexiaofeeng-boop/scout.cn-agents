@@ -1,0 +1,17 @@
+{
+  "name": "scout-vendor",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "providers:list": "tsx src/cli.ts providers:list",
+    "collect": "tsx src/cli.ts collect"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.9.2"
+  }
+}
