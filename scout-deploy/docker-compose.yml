@@ -77,7 +77,7 @@ services:
     environment:
       SCOUT_PROJECT_ROOT: /workspace
       SCOUT_STATE_DIR: /workspace/scout-hub/state
-      SCOUT_MEDIACRAWLER_ROOT: /workspace/MediaCrawler
+      SCOUT_MEDIACRAWLER_ROOT: /workspace/scout-vendor/mediacrawler
       SCOUT_WECHAT_ROOT: /workspace/wechat-spider
       SCOUT_MONITOR_HOST: 0.0.0.0
       SCOUT_MONITOR_PORT: 18080
@@ -88,13 +88,10 @@ services:
       - "127.0.0.1:18080:18080"
     volumes:
       - ../scout-hub/state:/workspace/scout-hub/state
-      - ../MediaCrawler:/workspace/MediaCrawler:ro
+      - ../scout-vendor/mediacrawler:/workspace/scout-vendor/mediacrawler:ro
       - ../wechat-spider:/workspace/wechat-spider:ro
 
   scout-hub-scheduler:
-    build:
-      context: ../scout-hub
-      dockerfile: Dockerfile
     image: scout-hub:latest
     restart: unless-stopped
     depends_on:
@@ -105,12 +102,12 @@ services:
     environment:
       SCOUT_PROJECT_ROOT: /workspace
       SCOUT_STATE_DIR: /workspace/scout-hub/state
-      SCOUT_MEDIACRAWLER_ROOT: /workspace/MediaCrawler
+      SCOUT_MEDIACRAWLER_ROOT: /workspace/scout-vendor/mediacrawler
       SCOUT_WECHAT_ROOT: /workspace/wechat-spider
       WECHAT_MYSQL_HOST: mariadb
       WECHAT_MYSQL_PORT: 3306
     command: ["npx", "tsx", "src/cli.ts", "scheduler"]
     volumes:
       - ../scout-hub/state:/workspace/scout-hub/state
-      - ../MediaCrawler:/workspace/MediaCrawler:ro
+      - ../scout-vendor/mediacrawler:/workspace/scout-vendor/mediacrawler:ro
       - ../wechat-spider:/workspace/wechat-spider:ro
