@@ -10,10 +10,21 @@
     "language": "zh-CN",
     "intent": "trend_watch",
     "refreshCadence": "daily",
-    "platforms": ["xiaohongshu", "douyin", "bilibili", "weibo", "industry_news"],
-    "dataSources": ["mediacrawler", "industry_news"],
+    "platforms": [
+      "xiaohongshu",
+      "douyin",
+      "bilibili",
+      "weibo",
+      "industry_news"
+    ],
+    "dataSources": [
+      "mediacrawler",
+      "industry_news"
+    ],
     "owner": "intel-ops",
-    "seedKeywordIds": ["INTEL-001"]
+    "seedKeywordIds": [
+      "INTEL-001"
+    ]
   },
   {
     "id": "topic-middle-east-israel-iran",
@@ -26,10 +37,18 @@
     "language": "zh-CN",
     "intent": "risk",
     "refreshCadence": "daily",
-    "platforms": ["douyin", "bilibili", "weibo"],
-    "dataSources": ["mediacrawler"],
+    "platforms": [
+      "douyin",
+      "bilibili",
+      "weibo"
+    ],
+    "dataSources": [
+      "mediacrawler"
+    ],
     "owner": "intel-ops",
-    "seedKeywordIds": ["INTEL-002"]
+    "seedKeywordIds": [
+      "INTEL-002"
+    ]
   },
   {
     "id": "topic-middle-east-war",
@@ -42,10 +61,18 @@
     "language": "zh-CN",
     "intent": "risk",
     "refreshCadence": "daily",
-    "platforms": ["douyin", "bilibili", "weibo"],
-    "dataSources": ["mediacrawler"],
+    "platforms": [
+      "douyin",
+      "bilibili",
+      "weibo"
+    ],
+    "dataSources": [
+      "mediacrawler"
+    ],
     "owner": "intel-ops",
-    "seedKeywordIds": ["INTEL-003"]
+    "seedKeywordIds": [
+      "INTEL-003"
+    ]
   },
   {
     "id": "topic-health-food",
@@ -58,10 +85,18 @@
     "language": "zh-CN",
     "intent": "risk",
     "refreshCadence": "weekly",
-    "platforms": ["xiaohongshu", "douyin", "bilibili"],
-    "dataSources": ["mediacrawler"],
+    "platforms": [
+      "xiaohongshu",
+      "douyin",
+      "bilibili"
+    ],
+    "dataSources": [
+      "mediacrawler"
+    ],
     "owner": "intel-ops",
-    "seedKeywordIds": ["INTEL-004"]
+    "seedKeywordIds": [
+      "INTEL-004"
+    ]
   },
   {
     "id": "game-survivor-like-idle-rpg",
@@ -74,10 +109,20 @@
     "language": "en-US",
     "intent": "market_scan",
     "refreshCadence": "weekly",
-    "platforms": ["steam", "youtube", "reddit"],
-    "dataSources": ["steam", "youtube", "reddit"],
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
     "owner": "game-intel",
-    "seedKeywordIds": ["GAME-001"]
+    "seedKeywordIds": [
+      "GAME-001"
+    ]
   },
   {
     "id": "game-historical-exploration",
@@ -90,10 +135,20 @@
     "language": "en-US",
     "intent": "market_scan",
     "refreshCadence": "weekly",
-    "platforms": ["steam", "youtube", "reddit"],
-    "dataSources": ["steam", "youtube", "reddit"],
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
     "owner": "game-intel",
-    "seedKeywordIds": ["GAME-002"]
+    "seedKeywordIds": [
+      "GAME-002"
+    ]
   },
   {
     "id": "game-creature-evolution",
@@ -106,10 +161,20 @@
     "language": "en-US",
     "intent": "player_pain",
     "refreshCadence": "weekly",
-    "platforms": ["steam", "youtube", "reddit"],
-    "dataSources": ["steam", "youtube", "reddit"],
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
     "owner": "game-intel",
-    "seedKeywordIds": ["GAME-003"]
+    "seedKeywordIds": [
+      "GAME-003"
+    ]
   },
   {
     "id": "game-geo-history-puzzle",
@@ -122,10 +187,20 @@
     "language": "en-US",
     "intent": "creative_hook",
     "refreshCadence": "weekly",
-    "platforms": ["steam", "youtube", "reddit"],
-    "dataSources": ["steam", "youtube", "reddit"],
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
     "owner": "game-intel",
-    "seedKeywordIds": ["GAME-004"]
+    "seedKeywordIds": [
+      "GAME-004"
+    ]
   },
   {
     "id": "game-cozy-strategy",
@@ -138,10 +213,20 @@
     "language": "en-US",
     "intent": "market_scan",
     "refreshCadence": "weekly",
-    "platforms": ["steam", "youtube", "reddit"],
-    "dataSources": ["steam", "youtube", "reddit"],
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
     "owner": "game-intel",
-    "seedKeywordIds": ["GAME-005"]
+    "seedKeywordIds": [
+      "GAME-005"
+    ]
   },
   {
     "id": "game-mythology-roguelite",
@@ -154,9 +239,127 @@
     "language": "en-US",
     "intent": "creative_hook",
     "refreshCadence": "weekly",
-    "platforms": ["steam", "youtube", "reddit"],
-    "dataSources": ["steam", "youtube", "reddit"],
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
     "owner": "game-intel",
-    "seedKeywordIds": ["GAME-006"]
+    "seedKeywordIds": [
+      "GAME-006"
+    ]
+  },
+  {
+    "id": "gameprism.gg-language-games",
+    "projectId": "gameprism.gg",
+    "name": "language puzzle games",
+    "description": "Track language, decoding, glyph, translation, and linguistic mystery signals for GamePrism.gg topic pages and Prism Notes.",
+    "status": "active",
+    "priority": "high",
+    "vertical": "game",
+    "market": "US",
+    "language": "en-US",
+    "intent": "editorial_update",
+    "refreshCadence": "weekly",
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "owner": "gameprism.gg-editorial",
+    "seedKeywordIds": [
+      "GPGG-001"
+    ]
+  },
+  {
+    "id": "gameprism.gg-historical-mystery-games",
+    "projectId": "gameprism.gg",
+    "name": "historical mystery games",
+    "description": "Track historical mystery, deduction, archaeology, manuscript, and weird-history game signals for GamePrism.gg editorial curation.",
+    "status": "active",
+    "priority": "high",
+    "vertical": "game",
+    "market": "US",
+    "language": "en-US",
+    "intent": "editorial_update",
+    "refreshCadence": "weekly",
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "owner": "gameprism.gg-editorial",
+    "seedKeywordIds": [
+      "GPGG-002"
+    ]
+  },
+  {
+    "id": "gameprism.gg-map-exploration-games",
+    "projectId": "gameprism.gg",
+    "name": "map exploration games",
+    "description": "Track geography, maps, exploration, route-planning, travel, and place-based game signals for GamePrism.gg topics and playable ideas.",
+    "status": "active",
+    "priority": "high",
+    "vertical": "game",
+    "market": "US",
+    "language": "en-US",
+    "intent": "editorial_update",
+    "refreshCadence": "weekly",
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "owner": "gameprism.gg-editorial",
+    "seedKeywordIds": [
+      "GPGG-003"
+    ]
+  },
+  {
+    "id": "gameprism.gg-ecology-systems-games",
+    "projectId": "gameprism.gg",
+    "name": "ecology systems games",
+    "description": "Track ecology, restoration, evolution, systems thinking, city networks, and playable toy inspiration for GamePrism.gg.",
+    "status": "active",
+    "priority": "high",
+    "vertical": "game",
+    "market": "US",
+    "language": "en-US",
+    "intent": "editorial_update",
+    "refreshCadence": "weekly",
+    "platforms": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "dataSources": [
+      "steam",
+      "youtube",
+      "reddit"
+    ],
+    "owner": "gameprism.gg-editorial",
+    "seedKeywordIds": [
+      "GPGG-004"
+    ]
   }
 ]

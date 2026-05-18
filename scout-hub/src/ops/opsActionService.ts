@@ -5,10 +5,12 @@ import path from "node:path";
 import { ScoutPipeline } from "../pipeline.js";
 import { loadOpsTopics, OPS_COLLECTABLE_PROVIDER_IDS, OPS_PROVIDERS, providersWithEnvState } from "./opsRegistry.js";
 import { OpsReviewService } from "./opsReviewService.js";
+import { projectRuntimeRoot } from "./projectRuntime.js";
 import type { OpsActionInputRecord, OpsActionName, OpsActionRun, OpsActionRunStatus, OpsRunCleanupResult, OpsTopic } from "./types.js";
 
 type OpsActionInput = {
   topicId?: unknown;
+  projectId?: unknown;
   providers?: unknown;
   query?: unknown;
   limit?: unknown;
@@ -40,6 +42,7 @@ type PreparedRequest = {
   appId: string;
   subreddit: string;
   inputRecord: OpsActionInputRecord;
+  projectRuntimeRoot: string;
 };
 
 const COLLECTABLE_PROVIDER_IDS = new Set<string>(OPS_COLLECTABLE_PROVIDER_IDS);
@@ -56,7 +59,7 @@ export class OpsActionService {
     const prepared = await this.prepareRequest(action, input);
     const startedAt = new Date().toISOString();
     const runId = buildOpsRunId(startedAt);
-    const runDir = path.join(this.pipeline.settings.runtimeRoot, "runs", runId);
+    const runDir = path.join(prepared.projectRuntimeRoot, "runs", runId);
     const logPath = path.join(runDir, "logs.jsonl");
     const itemPath = path.join(runDir, "items.jsonl");
     const summaryPath = path.join(runDir, "summary.json");
@@ -122,6 +125,7 @@ export class OpsActionService {
       action,
       status,
       topicId: prepared.topic.id,
+      projectId: prepared.topic.projectId,
       vertical: prepared.topic.vertical,
       providers: prepared.providers,
       dryRun: prepared.dryRun,
@@ -135,6 +139,7 @@ export class OpsActionService {
       query: prepared.query,
       limit: prepared.limit,
       input: prepared.inputRecord,
+      projectRuntimeRoot: prepared.projectRuntimeRoot,
       commandCount: commandResults.length,
       successfulCommandCount,
       failedCommandCount,
@@ -149,7 +154,7 @@ export class OpsActionService {
     });
     await writeJson(summaryPath, summary);
     await fs.writeFile(reportPath, buildRunReport(summary, commandResults), "utf-8");
-    await this.reviewService.createFromRun(summary, normalized);
+    await new OpsReviewService(prepared.projectRuntimeRoot).createFromRun(summary, normalized);
     await this.cleanupRuns();
     await log(status === "success" ? "info" : "warn", `Finished ${action} with status=${status}`, { runId, status });
     return summary;
@@ -169,27 +174,31 @@ export class OpsActionService {
   }
 
   async cleanupRuns(): Promise<OpsRunCleanupResult> {
-    const runsDir = path.join(this.pipeline.settings.runtimeRoot, "runs");
+    const runRoots = await this.runRoots();
     const retentionDays = this.pipeline.settings.opsRunRetentionDays;
     const retentionMax = this.pipeline.settings.opsRunRetentionMax;
     let entries: Array<{ runId: string; runDir: string; startedAt: string; mtimeMs: number }> = [];
-    try {
-      const dirents = await fs.readdir(runsDir, { withFileTypes: true });
-      entries = await Promise.all(dirents
-        .filter((entry) => entry.isDirectory() && entry.name.startsWith("scout_run_"))
-        .map(async (entry) => {
-          const runDir = path.join(runsDir, entry.name);
-          const stat = await fs.stat(runDir);
-          const summary = await readJson(path.join(runDir, "summary.json"));
-          return {
-            runId: entry.name,
-            runDir,
-            startedAt: stringValue(summary?.startedAt),
-            mtimeMs: stat.mtimeMs,
-          };
-        }));
-    } catch {
-      return { runsDir, retentionDays, retentionMax, deletedCount: 0, keptCount: 0, deletedRunIds: [] };
+    for (const root of runRoots) {
+      const runsDir = path.join(root, "runs");
+      try {
+        const dirents = await fs.readdir(runsDir, { withFileTypes: true });
+        const rootEntries = await Promise.all(dirents
+          .filter((entry) => entry.isDirectory() && entry.name.startsWith("scout_run_"))
+          .map(async (entry) => {
+            const runDir = path.join(runsDir, entry.name);
+            const stat = await fs.stat(runDir);
+            const summary = await readJson(path.join(runDir, "summary.json"));
+            return {
+              runId: entry.name,
+              runDir,
+              startedAt: stringValue(summary?.startedAt),
+              mtimeMs: stat.mtimeMs,
+            };
+          }));
+        entries.push(...rootEntries);
+      } catch {
+        // Missing run directories are normal for projects that have not run yet.
+      }
     }
 
     const now = Date.now();
@@ -207,7 +216,7 @@ export class OpsActionService {
     }
 
     return {
-      runsDir,
+      runsDir: runRoots.map((root) => path.join(root, "runs")).join(","),
       retentionDays,
       retentionMax,
       deletedCount: toDelete.length,
@@ -219,20 +228,23 @@ export class OpsActionService {
   async readRun(runId: string): Promise<Record<string, unknown> | undefined> {
     const safeRunId = sanitizeRunId(runId);
     if (!safeRunId) return undefined;
-    return readJson(path.join(this.pipeline.settings.runtimeRoot, "runs", safeRunId, "run.json"));
+    const filePath = await this.findRunFile(safeRunId, "run.json");
+    return filePath ? readJson(filePath) : undefined;
   }
 
   async readRunLogs(runId: string): Promise<Array<Record<string, unknown>>> {
     const safeRunId = sanitizeRunId(runId);
     if (!safeRunId) return [];
-    return readJsonl(path.join(this.pipeline.settings.runtimeRoot, "runs", safeRunId, "logs.jsonl"));
+    const filePath = await this.findRunFile(safeRunId, "logs.jsonl");
+    return filePath ? readJsonl(filePath) : [];
   }
 
   private async prepareRequest(action: OpsActionName, input: OpsActionInput): Promise<PreparedRequest> {
     const topicConfigPath = path.join(this.pipeline.settings.projectRoot, "scout-media-agents", "config", "topics", "scout-topics.json");
     const topics = await loadOpsTopics(topicConfigPath);
     const topicId = stringValue(input.topicId);
-    const topic = topics.find((candidate) => candidate.id === topicId);
+    const requestedProjectId = stringValue(input.projectId);
+    const topic = topics.find((candidate) => candidate.id === topicId && (!requestedProjectId || candidate.projectId === requestedProjectId));
     if (!topic) throw new Error("Unknown topicId. Use a topic from scout-media-agents/config/topics/scout-topics.json.");
 
     const providerIds = providerList(input.providers);
@@ -263,6 +275,7 @@ export class OpsActionService {
     const gameIds = stringList(input.gameIds);
     const appId = stringValue(input.appId);
     const subreddit = stringValue(input.subreddit);
+    const preparedProjectRuntimeRoot = projectRuntimeRoot(this.pipeline.settings.runtimeRoot, topic.projectId);
 
     return {
       topic,
@@ -274,8 +287,10 @@ export class OpsActionService {
       gameIds,
       appId,
       subreddit,
+      projectRuntimeRoot: preparedProjectRuntimeRoot,
       inputRecord: {
         topicId: topic.id,
+        projectId: topic.projectId,
         providers,
         query,
         limit,
@@ -311,7 +326,7 @@ export class OpsActionService {
       "--limit",
       String(prepared.limit),
       "--runtime-root",
-      this.pipeline.settings.runtimeRoot,
+      prepared.projectRuntimeRoot,
     ];
     if (prepared.dryRun) args.push("--dry-run");
     if (provider === "steam" && prepared.appId) args.push("--app-id", prepared.appId);
@@ -332,7 +347,7 @@ export class OpsActionService {
       "--vertical",
       prepared.topic.vertical,
       "--runtime-root",
-      this.pipeline.settings.runtimeRoot,
+      prepared.projectRuntimeRoot,
     ];
     if (prepared.providers.length) args.push("--providers", prepared.providers.join(","));
     if (prepared.gameIds.length) args.push("--game-ids", prepared.gameIds.join(","));
@@ -391,6 +406,29 @@ export class OpsActionService {
       });
     });
   }
+
+  private async findRunFile(runId: string, fileName: string): Promise<string | undefined> {
+    for (const root of await this.runRoots()) {
+      const filePath = path.join(root, "runs", runId, fileName);
+      try {
+        await fs.access(filePath);
+        return filePath;
+      } catch {
+        // Continue searching project-specific runtime roots.
+      }
+    }
+    return undefined;
+  }
+
+  private async runRoots(): Promise<string[]> {
+    const topicConfigPath = path.join(this.pipeline.settings.projectRoot, "scout-media-agents", "config", "topics", "scout-topics.json");
+    const topics = await loadOpsTopics(topicConfigPath);
+    const projectIds = [...new Set(topics.map((topic) => topic.projectId).filter(Boolean))];
+    return [
+      this.pipeline.settings.runtimeRoot,
+      ...projectIds.map((projectId) => projectRuntimeRoot(this.pipeline.settings.runtimeRoot, projectId)),
+    ];
+  }
 }
 
 function buildOpsRunId(startedAt: string): string {
@@ -423,6 +461,7 @@ function collectedRecordCount(results: CommandResult[]): number {
 function fallbackInputFromRun(run: Record<string, unknown>): OpsActionInputRecord {
   return {
     topicId: stringValue(run.topicId),
+    projectId: stringValue(run.projectId),
     providers: stringList(run.providers),
     query: stringValue(run.query),
     limit: boundedInt(run.limit, 10, 1, 25),

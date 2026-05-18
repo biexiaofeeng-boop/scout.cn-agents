@@ -15,6 +15,7 @@ export type OpsProvider = {
 
 export type OpsTopic = {
   id: string;
+  projectId: string;
   name: string;
   description: string;
   status: string;
@@ -39,6 +40,7 @@ export type OpsActionRunSummary = {
   action: OpsActionName;
   status: OpsActionRunStatus;
   topicId: string;
+  projectId: string;
   vertical: string;
   providers: string[];
   dryRun: boolean;
@@ -55,6 +57,7 @@ export type OpsActionRun = OpsActionRunSummary & {
   query: string;
   limit: number;
   input: OpsActionInputRecord;
+  projectRuntimeRoot: string;
   commandCount: number;
   successfulCommandCount: number;
   failedCommandCount: number;
@@ -65,6 +68,7 @@ export type OpsActionRun = OpsActionRunSummary & {
 
 export type OpsActionInputRecord = {
   topicId: string;
+  projectId: string;
   providers: string[];
   query: string;
   limit: number;
@@ -94,6 +98,7 @@ export type OpsReviewItem = {
   runId: string;
   action: OpsActionName;
   topicId: string;
+  projectId: string;
   vertical: string;
   providers: string[];
   dryRun: boolean;
@@ -108,7 +113,9 @@ export type OpsReviewItem = {
 
 export type OpsArtifactState = {
   topicId: string;
+  projectId: string;
   vertical: string;
+  projectRuntimeRoot: string;
   topicDir: string;
   rawProviderCount: number;
   rawFileCount: number;

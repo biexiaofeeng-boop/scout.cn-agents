@@ -180,6 +180,19 @@ The Ops Console supports guarded SO2 actions for known topics and allowlisted pr
 
 Run records are persisted under `/Users/sourcefire/1data/scout/runs/<run-id>/`. Review queue records are persisted under `/Users/sourcefire/1data/scout/review-queue/`. Collection output still lands under `/Users/sourcefire/1data/scout/topics/...`.
 
+Project-specific operations should use `projectId` and write into a project runtime namespace. For example, `gameprism.gg` topics write under:
+
+```text
+/Users/sourcefire/1data/scout/projects/gameprism.gg/
+  topics/
+  handoff/
+  reports/
+  runs/
+  review-queue/
+```
+
+See `docs/GAMEPRISM_GG_OPERATIONS.md` for the current gameprism.gg runbook.
+
 ## Governance Flow
 
 Use this as the default operating loop:

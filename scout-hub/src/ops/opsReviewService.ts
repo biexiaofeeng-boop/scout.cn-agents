@@ -36,6 +36,7 @@ export class OpsReviewService {
       runId: run.runId,
       action: run.action,
       topicId: run.topicId,
+      projectId: run.projectId,
       vertical: run.vertical,
       providers: run.providers,
       dryRun: run.dryRun,

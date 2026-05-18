@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { OpsActionRunSummary, OpsArtifactState } from "./types.js";
+import { projectRuntimeRoot, sanitizeTopicPathToken } from "./projectRuntime.js";
 
 async function exists(filePath: string): Promise<boolean> {
   try {
@@ -53,8 +54,9 @@ async function listFiles(dir: string): Promise<string[]> {
   }
 }
 
-export async function scanTopicArtifacts(runtimeRoot: string, vertical: string, topicId: string): Promise<OpsArtifactState> {
-  const topicDir = path.join(runtimeRoot, "topics", vertical, topicId);
+export async function scanTopicArtifacts(runtimeRoot: string, vertical: string, topicId: string, projectId = ""): Promise<OpsArtifactState> {
+  const topicRuntimeRoot = projectRuntimeRoot(runtimeRoot, projectId);
+  const topicDir = path.join(topicRuntimeRoot, "topics", sanitizeTopicPathToken(vertical), sanitizeTopicPathToken(topicId));
   const rawDir = path.join(topicDir, "raw");
   const rawFiles = (await listFiles(rawDir)).filter((file) => file.endsWith(".jsonl"));
   const rawRecordCounts = await Promise.all(rawFiles.map((file) => countJsonlRows(file)));
@@ -70,7 +72,9 @@ export async function scanTopicArtifacts(runtimeRoot: string, vertical: string, 
 
   return {
     topicId,
+    projectId,
     vertical,
+    projectRuntimeRoot: topicRuntimeRoot,
     topicDir,
     rawProviderCount: rawProviderNames.size,
     rawFileCount: rawFiles.length,
@@ -90,7 +94,18 @@ export async function scanTopicArtifacts(runtimeRoot: string, vertical: string, 
   };
 }
 
-export async function listRecentOpsRuns(runtimeRoot: string, limit = 12): Promise<OpsActionRunSummary[]> {
+export async function listRecentOpsRuns(runtimeRoot: string, limit = 12, projectIds: string[] = []): Promise<OpsActionRunSummary[]> {
+  const roots = [
+    { root: runtimeRoot, projectId: "" },
+    ...[...new Set(projectIds.filter(Boolean))].map((projectId) => ({ root: projectRuntimeRoot(runtimeRoot, projectId), projectId })),
+  ];
+  const summaries = (await Promise.all(roots.map((entry) => listRecentOpsRunsFromRoot(entry.root, entry.projectId)))).flat();
+  return summaries
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, limit);
+}
+
+async function listRecentOpsRunsFromRoot(runtimeRoot: string, projectId: string): Promise<OpsActionRunSummary[]> {
   const runsDir = path.join(runtimeRoot, "runs");
   let entries: string[] = [];
   try {
@@ -110,6 +125,7 @@ export async function listRecentOpsRuns(runtimeRoot: string, limit = 12): Promis
         action: String(summary.action) as OpsActionRunSummary["action"],
         status: String(summary.status) as OpsActionRunSummary["status"],
         topicId: String(summary.topicId || ""),
+        projectId: String(summary.projectId || projectId),
         vertical: String(summary.vertical || ""),
         providers: Array.isArray(summary.providers) ? summary.providers.map(String) : [],
         dryRun: Boolean(summary.dryRun),
@@ -126,6 +142,5 @@ export async function listRecentOpsRuns(runtimeRoot: string, limit = 12): Promis
 
   return summaries
     .filter((summary): summary is OpsActionRunSummary => Boolean(summary))
-    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
-    .slice(0, limit);
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }

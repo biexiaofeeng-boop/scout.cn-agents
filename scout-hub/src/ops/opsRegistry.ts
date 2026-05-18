@@ -57,6 +57,7 @@ export async function loadOpsTopics(topicConfigPath: string): Promise<OpsTopic[]
     const parsed = JSON.parse(raw) as OpsTopic[];
     return parsed.map((topic) => ({
       id: String(topic.id || ""),
+      projectId: String(topic.projectId || ""),
       name: String(topic.name || topic.id || ""),
       description: String(topic.description || ""),
       status: String(topic.status || "unknown"),

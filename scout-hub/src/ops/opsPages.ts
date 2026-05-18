@@ -185,7 +185,7 @@ function renderReviewQueue(overview: OpsOverview): string {
     <tbody>${overview.reviewQueue.map((item) => `<tr>
       <td><b>${h(item.id)}</b><div class="mono">${h(item.runId)}</div><div class="muted">${h(item.createdAt)}</div></td>
       <td>${tag(item.status)}${item.reviewer ? `<div class="muted">by ${h(item.reviewer)}</div>` : ""}</td>
-      <td><div class="mono">${h(item.topicId)}</div><div>${item.providers.map(tag).join("")}</div></td>
+      <td><div class="mono">${h(item.topicId)}</div>${item.projectId ? tag(item.projectId) : ""}<div>${item.providers.map(tag).join("")}</div></td>
       <td>${item.rawRecordCount} raw / ${item.normalizedEvidenceCount} ev${item.dryRun ? `<div>${tag("dry-run")}</div>` : ""}</td>
       <td><div class="stack small">
         <div><b>report</b><div class="mono">${h(item.reportPath)}</div></div>
@@ -207,7 +207,7 @@ function renderTopics(overview: OpsOverview): string {
     <thead><tr><th>Topic</th><th>Scope</th><th>Sources</th><th>Runtime</th><th>Artifacts</th></tr></thead>
     <tbody>
       ${overview.topics.map((topic) => `<tr>
-        <td><b>${h(topic.name)}</b><div class="mono">${h(topic.id)}</div><div class="muted">${h(topic.description)}</div></td>
+        <td><b>${h(topic.name)}</b><div class="mono">${h(topic.id)}</div>${topic.projectId ? `<div>${tag(topic.projectId)}</div>` : ""}<div class="muted">${h(topic.description)}</div></td>
         <td>${tag(topic.status)}${tag(topic.priority)}${tag(topic.intent)}<div class="mono">${h(topic.vertical)} / ${h(topic.market)} / ${h(topic.language)}</div><div class="muted">owner: ${h(topic.owner)} · cadence: ${h(topic.refreshCadence)}</div></td>
         <td><div>${topic.dataSources.map(tag).join("")}</div><div class="muted">platforms: ${topic.platforms.map(h).join(", ")}</div><div class="muted">seeds: ${topic.seedKeywordIds.map(h).join(", ")}</div></td>
         <td>${renderArtifactStats(topic.artifacts)}</td>
@@ -265,7 +265,7 @@ function renderOpsRuns(overview: OpsOverview): string {
       <td class="mono"><a href="/ops/runs/${h(run.runId)}">${h(run.runId)}</a></td>
       <td>${tag(run.action)}</td>
       <td>${tag(run.status)}</td>
-      <td><div class="mono">${h(run.topicId)}</div><div class="muted">${run.providers.map(h).join(", ")}</div></td>
+      <td><div class="mono">${h(run.topicId)}</div>${run.projectId ? tag(run.projectId) : ""}<div class="muted">${run.providers.map(h).join(", ")}</div></td>
       <td>${run.rawRecordCount} raw / ${run.normalizedEvidenceCount} ev</td>
       <td>${h(run.endedAt)}</td>
       <td>${run.status === "success" ? "" : `<button type="button" data-retry-run="${h(run.runId)}">Retry</button>`}</td>

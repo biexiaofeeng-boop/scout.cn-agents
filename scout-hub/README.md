@@ -42,6 +42,7 @@ SO2 actions are intentionally constrained:
 - no arbitrary shell command input from the UI or API
 - run records are written to `SCOUT_RUNTIME_ROOT/runs/<run-id>/`
 - review records are written to `SCOUT_RUNTIME_ROOT/review-queue/<review-id>.json`
+- topics with `projectId` are written to `SCOUT_RUNTIME_ROOT/projects/<projectId>/...`
 
 ## Environment
 
