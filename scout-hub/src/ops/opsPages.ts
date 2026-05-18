@@ -15,7 +15,7 @@ export function renderOpsPage(overview: OpsOverview): string {
       <div>
         <p class="eyebrow">Scout Intelligence Agents</p>
         <h1>Ops Console</h1>
-        <p class="lede">Readonly operator view for topic governance, provider readiness, runtime artifacts, hub health, and handoff outputs.</p>
+        <p class="lede">Operator view for topic governance, provider readiness, controlled collection actions, runtime artifacts, hub health, and handoff outputs.</p>
       </div>
       <div class="hero-actions">
         <a class="pill" href="/ops/overview.json">Open JSON</a>
@@ -50,6 +50,11 @@ export function renderOpsPage(overview: OpsOverview): string {
     </section>
 
     <section class="panel">
+      <div class="panel-head"><h2>Control Actions</h2><span>SO2 guarded execution</span></div>
+      ${renderOpsActions(overview)}
+    </section>
+
+    <section class="panel">
       <div class="panel-head"><h2>Topics And Runtime Artifacts</h2><span>${h(overview.runtimeRoot)}</span></div>
       ${renderTopics(overview)}
     </section>
@@ -60,16 +65,22 @@ export function renderOpsPage(overview: OpsOverview): string {
         ${renderRuns(overview)}
       </article>
       <article class="panel">
-        <div class="panel-head"><h2>Operator Notes</h2><span>SO1 readonly</span></div>
-        <ul class="notes">
-          <li>Use this page to verify topic readiness before running collection.</li>
-          <li>SO1 intentionally has no write buttons. Collection actions are planned for SO2.</li>
-          <li>Runtime artifacts live outside git under the configured Scout runtime root.</li>
-          <li>YouTube remains disabled until <code>YOUTUBE_API_KEY</code> is configured.</li>
-        </ul>
+        <div class="panel-head"><h2>Recent Ops Runs</h2><span>${overview.recentOpsRuns.length} rows</span></div>
+        ${renderOpsRuns(overview)}
       </article>
     </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Operator Notes</h2><span>SO2 first pass</span></div>
+        <ul class="notes">
+          <li>Use this page to verify topic readiness before running collection.</li>
+          <li>SO2 actions only call allowlisted providers and known topics. No arbitrary shell command input is accepted.</li>
+          <li>Runtime artifacts live outside git under the configured Scout runtime root.</li>
+          <li>YouTube live collection remains disabled until <code>YOUTUBE_API_KEY</code> is configured. Dry-run can still be used for pipeline checks.</li>
+        </ul>
+    </section>
   </main>
+  <script>${clientScript()}</script>
 </body>
 </html>`;
 }
@@ -106,6 +117,59 @@ function renderProviders(overview: OpsOverview): string {
       </tr>`).join("")}
     </tbody>
   </table>`;
+}
+
+function renderOpsActions(overview: OpsOverview): string {
+  const collectable = new Set(["steam", "youtube", "reddit"]);
+  const activeTopics = overview.topics.filter((topic) => topic.status === "active");
+  const providers = overview.providers.filter((provider) => collectable.has(provider.id));
+  return `<div class="ops-actions">
+    <form id="ops-action-form">
+      <label>Topic
+        <select name="topicId">
+          ${activeTopics.map((topic) => `<option value="${h(topic.id)}" data-query="${h(topic.name)}">${h(topic.name)} / ${h(topic.id)}</option>`).join("")}
+        </select>
+      </label>
+      <label>Query
+        <input name="query" value="${h(activeTopics[0]?.name || "")}" placeholder="Default uses selected topic name" />
+      </label>
+      <label>Limit
+        <input name="limit" type="number" min="1" max="25" value="10" />
+      </label>
+      <div class="provider-checks">
+        ${providers.map((provider) => {
+          const missing = provider.envState === "missing";
+          const disabled = missing ? "disabled" : "";
+          return `<label class="check ${missing ? "disabled" : ""}">
+            <input type="checkbox" name="providers" value="${h(provider.id)}" ${provider.id === "steam" || provider.id === "reddit" ? "checked" : ""} ${disabled} />
+            <span>${h(provider.id)}</span>
+            ${missing ? `<small>missing env</small>` : ""}
+          </label>`;
+        }).join("")}
+      </div>
+      <div class="form-row">
+        <label class="check"><input type="checkbox" name="dryRun" /> <span>dry-run</span></label>
+        <label class="check"><input type="checkbox" name="includeDryRun" /> <span>include dry-run in normalize</span></label>
+      </div>
+      <div class="form-row">
+        <label>Steam appId
+          <input name="appId" placeholder="optional, for app reviews" />
+        </label>
+        <label>Subreddit
+          <input name="subreddit" placeholder="optional, e.g. gamedev" />
+        </label>
+        <label>GameLens gameIds
+          <input name="gameIds" placeholder="optional comma list" />
+        </label>
+      </div>
+      <div class="hero-actions inline">
+        <button type="button" data-action="collect-topic">Collect Topic</button>
+        <button type="button" data-action="normalize-topic">Normalize Topic</button>
+        <button type="button" data-action="collect-and-normalize-topic">Collect + Normalize</button>
+      </div>
+    </form>
+    <div id="ops-action-result" class="empty">Select a topic/provider and run a guarded action. Results are persisted under ${h(overview.runtimeRoot)}/runs.</div>
+  </div>`;
 }
 
 function renderTopics(overview: OpsOverview): string {
@@ -157,6 +221,21 @@ function renderRuns(overview: OpsOverview): string {
   </table>`;
 }
 
+function renderOpsRuns(overview: OpsOverview): string {
+  if (overview.recentOpsRuns.length === 0) return `<div class="empty">No ops action runs yet.</div>`;
+  return `<table>
+    <thead><tr><th>Run</th><th>Action</th><th>Status</th><th>Topic</th><th>Evidence</th><th>Ended</th></tr></thead>
+    <tbody>${overview.recentOpsRuns.map((run) => `<tr>
+      <td class="mono"><a href="/ops/runs/${h(run.runId)}">${h(run.runId)}</a></td>
+      <td>${tag(run.action)}</td>
+      <td>${tag(run.status)}</td>
+      <td><div class="mono">${h(run.topicId)}</div><div class="muted">${run.providers.map(h).join(", ")}</div></td>
+      <td>${run.rawRecordCount} raw / ${run.normalizedEvidenceCount} ev</td>
+      <td>${h(run.endedAt)}</td>
+    </tr>`).join("")}</tbody>
+  </table>`;
+}
+
 function metricCard(label: string, value: string | number, note: string): string {
   return `<article class="card"><div class="metric-label">${h(label)}</div><div class="metric-value">${h(String(value))}</div><div class="muted">${h(note)}</div></article>`;
 }
@@ -178,6 +257,59 @@ function h(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
+function clientScript(): string {
+  return `
+    const form = document.getElementById("ops-action-form");
+    const resultBox = document.getElementById("ops-action-result");
+    const topicSelect = form?.querySelector("select[name=topicId]");
+    topicSelect?.addEventListener("change", () => {
+      const option = topicSelect.selectedOptions[0];
+      const query = form.querySelector("input[name=query]");
+      if (query && option?.dataset?.query) query.value = option.dataset.query;
+    });
+    document.querySelectorAll("[data-action]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        if (!form || !resultBox) return;
+        const action = button.getAttribute("data-action");
+        const data = new FormData(form);
+        const payload = {
+          topicId: String(data.get("topicId") || ""),
+          query: String(data.get("query") || ""),
+          limit: Number(data.get("limit") || 10),
+          providers: data.getAll("providers").map(String),
+          dryRun: data.get("dryRun") === "on",
+          includeDryRun: data.get("includeDryRun") === "on",
+          appId: String(data.get("appId") || ""),
+          subreddit: String(data.get("subreddit") || ""),
+          gameIds: String(data.get("gameIds") || ""),
+        };
+        resultBox.className = "empty";
+        resultBox.textContent = "Running " + action + " ...";
+        try {
+          const response = await fetch("/ops/runs/" + action, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const json = await response.json();
+          if (!response.ok) throw new Error(json.message || json.error || "request failed");
+          resultBox.className = "empty ok";
+          resultBox.innerHTML = "<b>" + escapeHtml(json.status) + "</b> " + escapeHtml(json.runId) +
+            " · raw=" + escapeHtml(String(json.rawRecordCount || 0)) +
+            " · evidence=" + escapeHtml(String(json.normalizedEvidenceCount || 0)) +
+            " · <a href=\\"/ops/runs/" + encodeURIComponent(json.runId) + "\\">open run.json</a>";
+        } catch (error) {
+          resultBox.className = "empty warn";
+          resultBox.textContent = error instanceof Error ? error.message : String(error);
+        }
+      });
+    });
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+    }
+  `;
+}
+
 function styles(): string {
   return `
     :root { --bg:#101820; --paper:#f7f0df; --card:#fffaf0; --ink:#15211c; --muted:#67716d; --line:#d8ccb6; --accent:#c26235; --ok:#266f52; --warn:#a36400; --bad:#a73838; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
@@ -191,6 +323,18 @@ function styles(): string {
     .lede { max-width:780px; color:#d4c9b8; font-size:17px; line-height:1.5; }
     .hero-actions { display:flex; gap:10px; flex-wrap:wrap; }
     .pill { color:var(--paper); border:1px solid rgba(255,255,255,.28); border-radius:999px; padding:9px 13px; text-decoration:none; background:rgba(255,255,255,.08); }
+    .inline { margin-top:12px; }
+    button { border:0; border-radius:999px; padding:10px 14px; color:#fffaf0; background:var(--accent); cursor:pointer; font:inherit; }
+    button:hover { filter:brightness(.95); }
+    label { display:grid; gap:6px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+    input,select { width:100%; border:1px solid var(--line); border-radius:12px; padding:10px 11px; background:#fff; color:var(--ink); font:14px var(--mono); }
+    .ops-actions form { display:grid; gap:12px; }
+    .provider-checks,.form-row { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+    .form-row label:not(.check) { flex:1 1 220px; }
+    .check { display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:999px; padding:8px 10px; background:#fff; text-transform:none; letter-spacing:0; color:var(--ink); }
+    .check input { width:auto; }
+    .check.disabled { opacity:.55; }
+    .check small { color:var(--warn); font-family:var(--mono); }
     .cards { display:grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap:14px; }
     .card,.panel { background:rgba(255,250,240,.96); border:1px solid var(--line); border-radius:20px; box-shadow:0 18px 40px rgba(0,0,0,.2); }
     .card { padding:18px; }
@@ -212,6 +356,9 @@ function styles(): string {
     .mono { font-family:var(--mono); font-size:12px; word-break:break-all; }
     .muted { color:var(--muted); font-size:13px; line-height:1.4; }
     .empty { padding:14px; border:1px dashed var(--line); border-radius:14px; color:var(--muted); }
+    .empty.ok { color:var(--ok); border-color:rgba(38,111,82,.32); }
+    .empty.warn { color:var(--warn); border-color:rgba(163,100,0,.32); }
+    a { color:var(--accent); }
     .stack { display:grid; gap:10px; }
     .small { font-size:13px; }
     .alert { display:grid; gap:4px; padding:12px; border:1px solid var(--line); border-radius:14px; background:#fff; }

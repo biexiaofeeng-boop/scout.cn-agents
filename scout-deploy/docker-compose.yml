@@ -78,6 +78,7 @@ services:
       SCOUT_PROJECT_ROOT: /workspace
       SCOUT_STATE_DIR: /workspace/scout-hub/state
       SCOUT_RUNTIME_ROOT: /workspace/scout-runtime
+      SCOUT_VENDOR_ROOT: /workspace/scout-vendor
       SCOUT_MEDIACRAWLER_ROOT: /workspace/scout-vendor/mediacrawler
       SCOUT_WECHAT_ROOT: /workspace/wechat-spider
       SCOUT_MONITOR_HOST: 0.0.0.0
@@ -91,7 +92,7 @@ services:
       - ../scout-hub/state:/workspace/scout-hub/state
       - ../../scout:/workspace/scout-runtime
       - ../scout-media-agents:/workspace/scout-media-agents:ro
-      - ../scout-vendor/mediacrawler:/workspace/scout-vendor/mediacrawler:ro
+      - ../scout-vendor:/workspace/scout-vendor:ro
       - ../wechat-spider:/workspace/wechat-spider:ro
 
   scout-hub-scheduler:
@@ -106,6 +107,7 @@ services:
       SCOUT_PROJECT_ROOT: /workspace
       SCOUT_STATE_DIR: /workspace/scout-hub/state
       SCOUT_RUNTIME_ROOT: /workspace/scout-runtime
+      SCOUT_VENDOR_ROOT: /workspace/scout-vendor
       SCOUT_MEDIACRAWLER_ROOT: /workspace/scout-vendor/mediacrawler
       SCOUT_WECHAT_ROOT: /workspace/wechat-spider
       WECHAT_MYSQL_HOST: mariadb
@@ -115,5 +117,5 @@ services:
       - ../scout-hub/state:/workspace/scout-hub/state
       - ../../scout:/workspace/scout-runtime
       - ../scout-media-agents:/workspace/scout-media-agents:ro
-      - ../scout-vendor/mediacrawler:/workspace/scout-vendor/mediacrawler:ro
+      - ../scout-vendor:/workspace/scout-vendor:ro
       - ../wechat-spider:/workspace/wechat-spider:ro

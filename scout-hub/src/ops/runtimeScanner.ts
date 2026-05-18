@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { OpsArtifactState } from "./types.js";
+import type { OpsActionRunSummary, OpsArtifactState } from "./types.js";
 
 async function exists(filePath: string): Promise<boolean> {
   try {
@@ -88,4 +88,44 @@ export async function scanTopicArtifacts(runtimeRoot: string, vertical: string, 
     reportUpdatedAt: await statMtime(reportPath),
     lastRawUpdatedAt,
   };
+}
+
+export async function listRecentOpsRuns(runtimeRoot: string, limit = 12): Promise<OpsActionRunSummary[]> {
+  const runsDir = path.join(runtimeRoot, "runs");
+  let entries: string[] = [];
+  try {
+    entries = await fs.readdir(runsDir);
+  } catch {
+    return [];
+  }
+
+  const summaries = await Promise.all(entries
+    .filter((entry) => entry.startsWith("scout_run_"))
+    .map(async (entry): Promise<OpsActionRunSummary | undefined> => {
+      const summaryPath = path.join(runsDir, entry, "summary.json");
+      const summary = await readJson(summaryPath);
+      if (!summary.runId || !summary.action || !summary.status) return undefined;
+      const runSummary: OpsActionRunSummary = {
+        runId: String(summary.runId),
+        action: String(summary.action) as OpsActionRunSummary["action"],
+        status: String(summary.status) as OpsActionRunSummary["status"],
+        topicId: String(summary.topicId || ""),
+        vertical: String(summary.vertical || ""),
+        providers: Array.isArray(summary.providers) ? summary.providers.map(String) : [],
+        dryRun: Boolean(summary.dryRun),
+        startedAt: String(summary.startedAt || ""),
+        endedAt: String(summary.endedAt || ""),
+        runDir: path.join(runsDir, entry),
+        reportPath: String(summary.reportPath || path.join(runsDir, entry, "report.md")),
+        rawRecordCount: Number(summary.rawRecordCount || 0),
+        normalizedEvidenceCount: Number(summary.normalizedEvidenceCount || 0),
+      };
+      if (typeof summary.errorText === "string") runSummary.errorText = summary.errorText;
+      return runSummary;
+    }));
+
+  return summaries
+    .filter((summary): summary is OpsActionRunSummary => Boolean(summary))
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, limit);
 }

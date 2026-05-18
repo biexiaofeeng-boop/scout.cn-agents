@@ -1,11 +1,14 @@
 import Fastify from "fastify";
+import { OpsActionService } from "./ops/opsActionService.js";
 import { OpsService } from "./ops/opsService.js";
 import { renderOpsPage } from "./ops/opsPages.js";
+import type { OpsActionName } from "./ops/types.js";
 import { ScoutPipeline } from "./pipeline.js";
 
 export async function startMonitorApi(pipeline: ScoutPipeline, host: string, port: number): Promise<void> {
   const app = Fastify({ logger: true });
   const opsService = new OpsService(pipeline);
+  const opsActionService = new OpsActionService(pipeline);
 
   app.get("/health", async () => {
     return {
@@ -26,6 +29,36 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
   app.post("/run-once", async () => pipeline.runOnce());
 
   app.get("/ops/overview.json", async () => opsService.buildOverview());
+
+  app.post("/ops/runs/:action", async (req, reply) => {
+    const action = (req.params as { action?: string }).action as OpsActionName;
+    if (!["collect-topic", "normalize-topic", "collect-and-normalize-topic"].includes(action)) {
+      reply.status(404);
+      return { error: "unsupported_action" };
+    }
+    try {
+      return await opsActionService.run(action, (req.body || {}) as Record<string, unknown>);
+    } catch (err) {
+      reply.status(400);
+      return {
+        error: "ops_action_rejected",
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  app.get("/ops/runs/:runId", async (req, reply) => {
+    const run = await opsActionService.readRun((req.params as { runId: string }).runId);
+    if (!run) {
+      reply.status(404);
+      return { error: "run_not_found" };
+    }
+    return run;
+  });
+
+  app.get("/ops/runs/:runId/logs", async (req) => {
+    return { logs: await opsActionService.readRunLogs((req.params as { runId: string }).runId) };
+  });
 
   app.get("/ops", async (_req, reply) => {
     const overview = await opsService.buildOverview();

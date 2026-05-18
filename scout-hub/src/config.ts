@@ -5,12 +5,14 @@ export type Settings = {
   projectRoot: string;
   stateDir: string;
   runtimeRoot: string;
+  vendorRoot: string;
   mediaCrawlerRoot: string;
   wechatRoot: string;
   wechatEnableDb: boolean;
   batchSize: number;
   alertDlqThreshold: number;
   schedulerIntervalSec: number;
+  opsActionTimeoutMs: number;
   monitorHost: string;
   monitorPort: number;
   wechatMysqlHost: string;
@@ -35,9 +37,10 @@ export function loadSettings(cwd: string = process.cwd()): Settings {
   const projectRoot = process.env.SCOUT_PROJECT_ROOT || path.resolve(cwd, "..");
   const stateDir = path.resolve(process.env.SCOUT_STATE_DIR || path.join(projectRoot, "scout-hub", "state"));
   const runtimeRoot = path.resolve(process.env.SCOUT_RUNTIME_ROOT || "/Users/sourcefire/1data/scout");
+  const vendorRoot = path.resolve(process.env.SCOUT_VENDOR_ROOT || path.join(projectRoot, "scout-vendor"));
 
   const mediaCrawlerRoot = path.resolve(
-    process.env.SCOUT_MEDIACRAWLER_ROOT || path.join(projectRoot, "scout-vendor", "mediacrawler"),
+    process.env.SCOUT_MEDIACRAWLER_ROOT || path.join(vendorRoot, "mediacrawler"),
   );
   const wechatRoot = path.resolve(process.env.SCOUT_WECHAT_ROOT || path.join(projectRoot, "wechat-spider"));
 
@@ -45,12 +48,14 @@ export function loadSettings(cwd: string = process.cwd()): Settings {
     projectRoot,
     stateDir,
     runtimeRoot,
+    vendorRoot,
     mediaCrawlerRoot,
     wechatRoot,
     wechatEnableDb: toBool(process.env.SCOUT_WECHAT_ENABLE_DB, true),
     batchSize: toInt(process.env.SCOUT_BATCH_SIZE, 500),
     alertDlqThreshold: toInt(process.env.SCOUT_ALERT_DLQ_THRESHOLD, 10),
     schedulerIntervalSec: toInt(process.env.SCOUT_SCHEDULER_INTERVAL_SEC, 300),
+    opsActionTimeoutMs: toInt(process.env.SCOUT_OPS_ACTION_TIMEOUT_MS, 180000),
     monitorHost: process.env.SCOUT_MONITOR_HOST || "127.0.0.1",
     monitorPort: toInt(process.env.SCOUT_MONITOR_PORT, 18080),
     wechatMysqlHost: process.env.WECHAT_MYSQL_HOST || "127.0.0.1",

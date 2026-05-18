@@ -30,6 +30,38 @@ export type OpsTopic = {
   seedKeywordIds: string[];
 };
 
+export type OpsActionName = "collect-topic" | "normalize-topic" | "collect-and-normalize-topic";
+
+export type OpsActionRunStatus = "running" | "success" | "partial_failed" | "failed";
+
+export type OpsActionRunSummary = {
+  runId: string;
+  action: OpsActionName;
+  status: OpsActionRunStatus;
+  topicId: string;
+  vertical: string;
+  providers: string[];
+  dryRun: boolean;
+  startedAt: string;
+  endedAt: string;
+  runDir: string;
+  reportPath: string;
+  rawRecordCount: number;
+  normalizedEvidenceCount: number;
+  errorText?: string;
+};
+
+export type OpsActionRun = OpsActionRunSummary & {
+  query: string;
+  limit: number;
+  commandCount: number;
+  successfulCommandCount: number;
+  failedCommandCount: number;
+  itemPath: string;
+  logPath: string;
+  summaryPath: string;
+};
+
 export type OpsArtifactState = {
   topicId: string;
   vertical: string;
@@ -61,6 +93,7 @@ export type OpsOverview = {
   providers: OpsProvider[];
   topics: Array<OpsTopic & { artifacts: OpsArtifactState }>;
   recentRuns: PipelineRun[];
+  recentOpsRuns: OpsActionRunSummary[];
   summary: {
     topicCount: number;
     activeTopicCount: number;

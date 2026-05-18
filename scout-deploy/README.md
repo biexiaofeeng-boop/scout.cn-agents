@@ -51,6 +51,14 @@ cd /Users/sourcefire/1data/scout-lab/scout-deploy
 ./docker-down.sh
 ```
 
+启动后打开 `http://127.0.0.1:18080/ops`。SO2 已支持在页面上选择 topic/provider 并触发：
+
+- `Collect Topic`
+- `Normalize Topic`
+- `Collect + Normalize`
+
+每次动作会写入 `/Users/sourcefire/1data/scout/runs/<run-id>/`，包括 `run.json`、`logs.jsonl`、`items.jsonl`、`summary.json` 和 `report.md`。
+
 ## 运行输出
 
 - PID: `/Users/sourcefire/1data/scout-lab/runtime/scout-deploy/pids`

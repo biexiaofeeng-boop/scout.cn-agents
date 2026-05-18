@@ -166,7 +166,15 @@ Expected local probes include:
 - `http://127.0.0.1:18080/alerts`
 - `http://127.0.0.1:18080/ops`
 
-The Ops Console is currently readonly. Use it to inspect topic readiness, provider status, hub runs, and runtime artifacts before running collection commands.
+The Ops Console supports guarded SO2 actions for known topics and allowlisted providers:
+
+- `POST /ops/runs/collect-topic`
+- `POST /ops/runs/normalize-topic`
+- `POST /ops/runs/collect-and-normalize-topic`
+- `GET /ops/runs/<run-id>`
+- `GET /ops/runs/<run-id>/logs`
+
+Run records are persisted under `/Users/sourcefire/1data/scout/runs/<run-id>/`. Collection output still lands under `/Users/sourcefire/1data/scout/topics/...`.
 
 ## Governance Flow
 
@@ -176,7 +184,7 @@ Use this as the default operating loop:
 2. Add human-approved seeds in `scout-media-agents/config/trend-seeds.csv`.
 3. Run expansion and backtest in `scout-media-agents`.
 4. Review generated query units before running large collection.
-5. Collect through registered providers in `scout-vendor`.
+5. Collect through registered providers in `scout-vendor` or the guarded `/ops` actions.
 6. Store raw data under `/Users/sourcefire/1data/scout/topics/.../raw/...`.
 7. Normalize raw provider records into evidence/trend-signal handoff formats.
 8. Let downstream products consume only normalized/handoff outputs.
