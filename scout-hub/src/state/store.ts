@@ -29,7 +29,7 @@ async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
 }
 
 async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
-  const tmpPath = `${filePath}.tmp`;
+  const tmpPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
   await fs.writeFile(tmpPath, `${JSON.stringify(value, null, 2)}\n`, "utf-8");
   await fs.rename(tmpPath, filePath);
 }
