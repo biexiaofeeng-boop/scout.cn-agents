@@ -164,6 +164,9 @@ Expected local probes include:
 - `http://127.0.0.1:18080/health`
 - `http://127.0.0.1:18080/metrics`
 - `http://127.0.0.1:18080/alerts`
+- `http://127.0.0.1:18080/ops`
+
+The Ops Console is currently readonly. Use it to inspect topic readiness, provider status, hub runs, and runtime artifacts before running collection commands.
 
 ## Governance Flow
 

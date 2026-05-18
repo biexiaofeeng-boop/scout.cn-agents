@@ -1,8 +1,11 @@
 import Fastify from "fastify";
+import { OpsService } from "./ops/opsService.js";
+import { renderOpsPage } from "./ops/opsPages.js";
 import { ScoutPipeline } from "./pipeline.js";
 
 export async function startMonitorApi(pipeline: ScoutPipeline, host: string, port: number): Promise<void> {
   const app = Fastify({ logger: true });
+  const opsService = new OpsService(pipeline);
 
   app.get("/health", async () => {
     return {
@@ -21,6 +24,14 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
   });
 
   app.post("/run-once", async () => pipeline.runOnce());
+
+  app.get("/ops/overview.json", async () => opsService.buildOverview());
+
+  app.get("/ops", async (_req, reply) => {
+    const overview = await opsService.buildOverview();
+    reply.type("text/html; charset=utf-8");
+    return renderOpsPage(overview);
+  });
 
   app.get("/alerts", async () => {
     const health = await pipeline.currentHealth();

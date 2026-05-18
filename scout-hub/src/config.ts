@@ -4,6 +4,7 @@ import path from "node:path";
 export type Settings = {
   projectRoot: string;
   stateDir: string;
+  runtimeRoot: string;
   mediaCrawlerRoot: string;
   wechatRoot: string;
   wechatEnableDb: boolean;
@@ -33,6 +34,7 @@ function toInt(v: string | undefined, defaultValue: number): number {
 export function loadSettings(cwd: string = process.cwd()): Settings {
   const projectRoot = process.env.SCOUT_PROJECT_ROOT || path.resolve(cwd, "..");
   const stateDir = path.resolve(process.env.SCOUT_STATE_DIR || path.join(projectRoot, "scout-hub", "state"));
+  const runtimeRoot = path.resolve(process.env.SCOUT_RUNTIME_ROOT || "/Users/sourcefire/1data/scout");
 
   const mediaCrawlerRoot = path.resolve(
     process.env.SCOUT_MEDIACRAWLER_ROOT || path.join(projectRoot, "scout-vendor", "mediacrawler"),
@@ -42,6 +44,7 @@ export function loadSettings(cwd: string = process.cwd()): Settings {
   return {
     projectRoot,
     stateDir,
+    runtimeRoot,
     mediaCrawlerRoot,
     wechatRoot,
     wechatEnableDb: toBool(process.env.SCOUT_WECHAT_ENABLE_DB, true),
