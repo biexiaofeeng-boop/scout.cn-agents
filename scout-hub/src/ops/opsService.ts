@@ -1,11 +1,16 @@
 import path from "node:path";
 import { ScoutPipeline } from "../pipeline.js";
 import { loadOpsTopics, providersWithEnvState } from "./opsRegistry.js";
+import { OpsReviewService } from "./opsReviewService.js";
 import { listRecentOpsRuns, scanTopicArtifacts } from "./runtimeScanner.js";
 import type { OpsOverview } from "./types.js";
 
 export class OpsService {
-  constructor(private readonly pipeline: ScoutPipeline) {}
+  private readonly reviewService: OpsReviewService;
+
+  constructor(private readonly pipeline: ScoutPipeline) {
+    this.reviewService = new OpsReviewService(pipeline.settings.runtimeRoot);
+  }
 
   async buildOverview(): Promise<OpsOverview> {
     const topicConfigPath = path.join(this.pipeline.settings.projectRoot, "scout-media-agents", "config", "topics", "scout-topics.json");
@@ -18,6 +23,7 @@ export class OpsService {
     const alerts = this.buildAlerts(hubHealth);
     const providers = providersWithEnvState();
     const recentOpsRuns = await listRecentOpsRuns(runtimeRoot, 12);
+    const reviewQueue = await this.reviewService.list(20);
 
     return {
       generatedAt: new Date().toISOString(),
@@ -30,6 +36,7 @@ export class OpsService {
       topics: topicRows,
       recentRuns,
       recentOpsRuns,
+      reviewQueue,
       summary: {
         topicCount: topicRows.length,
         activeTopicCount: topicRows.filter((topic) => topic.status === "active").length,
@@ -39,6 +46,7 @@ export class OpsService {
         topicsWithReport: topicRows.filter((topic) => topic.artifacts.reportExists).length,
         rawRecordCount: topicRows.reduce((sum, topic) => sum + topic.artifacts.rawRecordCount, 0),
         normalizedEvidenceCount: topicRows.reduce((sum, topic) => sum + topic.artifacts.normalizedRecordCount, 0),
+        pendingReviewCount: reviewQueue.filter((item) => item.status === "pending").length,
       },
     };
   }

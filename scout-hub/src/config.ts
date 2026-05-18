@@ -13,6 +13,8 @@ export type Settings = {
   alertDlqThreshold: number;
   schedulerIntervalSec: number;
   opsActionTimeoutMs: number;
+  opsRunRetentionDays: number;
+  opsRunRetentionMax: number;
   monitorHost: string;
   monitorPort: number;
   wechatMysqlHost: string;
@@ -56,6 +58,8 @@ export function loadSettings(cwd: string = process.cwd()): Settings {
     alertDlqThreshold: toInt(process.env.SCOUT_ALERT_DLQ_THRESHOLD, 10),
     schedulerIntervalSec: toInt(process.env.SCOUT_SCHEDULER_INTERVAL_SEC, 300),
     opsActionTimeoutMs: toInt(process.env.SCOUT_OPS_ACTION_TIMEOUT_MS, 180000),
+    opsRunRetentionDays: toInt(process.env.SCOUT_OPS_RUN_RETENTION_DAYS, 30),
+    opsRunRetentionMax: toInt(process.env.SCOUT_OPS_RUN_RETENTION_MAX, 300),
     monitorHost: process.env.SCOUT_MONITOR_HOST || "127.0.0.1",
     monitorPort: toInt(process.env.SCOUT_MONITOR_PORT, 18080),
     wechatMysqlHost: process.env.WECHAT_MYSQL_HOST || "127.0.0.1",

@@ -173,8 +173,12 @@ The Ops Console supports guarded SO2 actions for known topics and allowlisted pr
 - `POST /ops/runs/collect-and-normalize-topic`
 - `GET /ops/runs/<run-id>`
 - `GET /ops/runs/<run-id>/logs`
+- `POST /ops/runs/<run-id>/retry`
+- `POST /ops/runs/cleanup`
+- `GET /ops/review-queue`
+- `POST /ops/review-queue/<review-id>/decision`
 
-Run records are persisted under `/Users/sourcefire/1data/scout/runs/<run-id>/`. Collection output still lands under `/Users/sourcefire/1data/scout/topics/...`.
+Run records are persisted under `/Users/sourcefire/1data/scout/runs/<run-id>/`. Review queue records are persisted under `/Users/sourcefire/1data/scout/review-queue/`. Collection output still lands under `/Users/sourcefire/1data/scout/topics/...`.
 
 ## Governance Flow
 
@@ -187,10 +191,11 @@ Use this as the default operating loop:
 5. Collect through registered providers in `scout-vendor` or the guarded `/ops` actions.
 6. Store raw data under `/Users/sourcefire/1data/scout/topics/.../raw/...`.
 7. Normalize raw provider records into evidence/trend-signal handoff formats.
-8. Let downstream products consume only normalized/handoff outputs.
-9. Feed new collection needs back into TopicOps instead of creating crawler scripts elsewhere.
+8. Review normalized outputs in the Ops review queue.
+9. Let downstream products consume only approved normalized/handoff outputs.
+10. Feed new collection needs back into TopicOps instead of creating crawler scripts elsewhere.
 
-中文补充：正式运营不要“随便爬”。先定义 topic，再扩词，再审阅 query，再调度采集，再观察入库和 handoff。
+中文补充：正式运营不要“随便爬”。先定义 topic，再扩词，再审阅 query，再采集归一化，再 review，最后才进入后续调度和 handoff。
 
 ## Open Source Vendor Policy
 

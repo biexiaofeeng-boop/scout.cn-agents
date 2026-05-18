@@ -30,7 +30,7 @@ export function renderOpsPage(overview: OpsOverview): string {
       ${metricCard("Raw Records", overview.summary.rawRecordCount, "runtime files")}
       ${metricCard("Evidence", overview.summary.normalizedEvidenceCount, "normalized rows")}
       ${metricCard("Handoff", overview.summary.topicsWithHandoff, "topics ready")}
-      ${metricCard("Reports", overview.summary.topicsWithReport, "latest.md")}
+      ${metricCard("Review", overview.summary.pendingReviewCount, "pending")}
     </section>
 
     <section class="grid two">
@@ -59,6 +59,11 @@ export function renderOpsPage(overview: OpsOverview): string {
       ${renderTopics(overview)}
     </section>
 
+    <section class="panel">
+      <div class="panel-head"><h2>Review Queue</h2><span>${overview.summary.pendingReviewCount} pending before schedule</span></div>
+      ${renderReviewQueue(overview)}
+    </section>
+
     <section class="grid two">
       <article class="panel">
         <div class="panel-head"><h2>Recent Hub Runs</h2><span>${overview.recentRuns.length} rows</span></div>
@@ -74,8 +79,9 @@ export function renderOpsPage(overview: OpsOverview): string {
       <div class="panel-head"><h2>Operator Notes</h2><span>SO2 first pass</span></div>
         <ul class="notes">
           <li>Use this page to verify topic readiness before running collection.</li>
-          <li>SO2 actions only call allowlisted providers and known topics. No arbitrary shell command input is accepted.</li>
-          <li>Runtime artifacts live outside git under the configured Scout runtime root.</li>
+      <li>SO2 actions only call allowlisted providers and known topics. No arbitrary shell command input is accepted.</li>
+      <li>SO2.1 adds run cleanup, failed-run retry, and a review queue before scheduler editing.</li>
+      <li>Runtime artifacts live outside git under the configured Scout runtime root.</li>
           <li>YouTube live collection remains disabled until <code>YOUTUBE_API_KEY</code> is configured. Dry-run can still be used for pipeline checks.</li>
         </ul>
     </section>
@@ -172,6 +178,29 @@ function renderOpsActions(overview: OpsOverview): string {
   </div>`;
 }
 
+function renderReviewQueue(overview: OpsOverview): string {
+  if (overview.reviewQueue.length === 0) return `<div class="empty">No review items yet. Run Normalize or Collect + Normalize to create review gates.</div>`;
+  return `<table>
+    <thead><tr><th>Review</th><th>Status</th><th>Topic</th><th>Evidence</th><th>Artifacts</th><th>Decision</th></tr></thead>
+    <tbody>${overview.reviewQueue.map((item) => `<tr>
+      <td><b>${h(item.id)}</b><div class="mono">${h(item.runId)}</div><div class="muted">${h(item.createdAt)}</div></td>
+      <td>${tag(item.status)}${item.reviewer ? `<div class="muted">by ${h(item.reviewer)}</div>` : ""}</td>
+      <td><div class="mono">${h(item.topicId)}</div><div>${item.providers.map(tag).join("")}</div></td>
+      <td>${item.rawRecordCount} raw / ${item.normalizedEvidenceCount} ev${item.dryRun ? `<div>${tag("dry-run")}</div>` : ""}</td>
+      <td><div class="stack small">
+        <div><b>report</b><div class="mono">${h(item.reportPath)}</div></div>
+        <div><b>handoff</b><div class="mono">${h(item.handoffPath || "n/a")}</div></div>
+      </div></td>
+      <td>
+        ${item.status === "pending" ? `<div class="hero-actions inline">
+          <button type="button" data-review="${h(item.id)}" data-status="approved">Approve</button>
+          <button type="button" data-review="${h(item.id)}" data-status="rejected" class="secondary">Reject</button>
+        </div>` : `<div class="muted">${h(item.decisionNote || "decided")}</div>`}
+      </td>
+    </tr>`).join("")}</tbody>
+  </table>`;
+}
+
 function renderTopics(overview: OpsOverview): string {
   if (overview.topics.length === 0) return `<div class="empty warn">No topics loaded. Check topic config path: ${h(overview.topicConfigPath)}</div>`;
   return `<table>
@@ -222,9 +251,16 @@ function renderRuns(overview: OpsOverview): string {
 }
 
 function renderOpsRuns(overview: OpsOverview): string {
-  if (overview.recentOpsRuns.length === 0) return `<div class="empty">No ops action runs yet.</div>`;
-  return `<table>
-    <thead><tr><th>Run</th><th>Action</th><th>Status</th><th>Topic</th><th>Evidence</th><th>Ended</th></tr></thead>
+  if (overview.recentOpsRuns.length === 0) {
+    return `<div class="stack">
+      <div class="hero-actions inline"><button type="button" data-cleanup-runs="true" class="secondary">Cleanup Runs</button></div>
+      <div class="empty">No ops action runs yet.</div>
+    </div>`;
+  }
+  return `<div class="stack">
+    <div class="hero-actions inline"><button type="button" data-cleanup-runs="true" class="secondary">Cleanup Runs</button></div>
+    <table>
+    <thead><tr><th>Run</th><th>Action</th><th>Status</th><th>Topic</th><th>Evidence</th><th>Ended</th><th>Action</th></tr></thead>
     <tbody>${overview.recentOpsRuns.map((run) => `<tr>
       <td class="mono"><a href="/ops/runs/${h(run.runId)}">${h(run.runId)}</a></td>
       <td>${tag(run.action)}</td>
@@ -232,8 +268,9 @@ function renderOpsRuns(overview: OpsOverview): string {
       <td><div class="mono">${h(run.topicId)}</div><div class="muted">${run.providers.map(h).join(", ")}</div></td>
       <td>${run.rawRecordCount} raw / ${run.normalizedEvidenceCount} ev</td>
       <td>${h(run.endedAt)}</td>
+      <td>${run.status === "success" ? "" : `<button type="button" data-retry-run="${h(run.runId)}">Retry</button>`}</td>
     </tr>`).join("")}</tbody>
-  </table>`;
+  </table></div>`;
 }
 
 function metricCard(label: string, value: string | number, note: string): string {
@@ -304,6 +341,52 @@ function clientScript(): string {
         }
       });
     });
+    document.querySelectorAll("[data-retry-run]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const runId = button.getAttribute("data-retry-run");
+        if (!runId || !resultBox) return;
+        resultBox.className = "empty";
+        resultBox.textContent = "Retrying " + runId + " ...";
+        try {
+          const response = await fetch("/ops/runs/" + encodeURIComponent(runId) + "/retry", { method: "POST" });
+          const json = await response.json();
+          if (!response.ok) throw new Error(json.message || json.error || "retry failed");
+          resultBox.className = "empty ok";
+          resultBox.innerHTML = "retry created <b>" + escapeHtml(json.runId) + "</b> · status=" + escapeHtml(json.status);
+        } catch (error) {
+          resultBox.className = "empty warn";
+          resultBox.textContent = error instanceof Error ? error.message : String(error);
+        }
+      });
+    });
+    document.querySelectorAll("[data-cleanup-runs]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        if (!resultBox) return;
+        const response = await fetch("/ops/runs/cleanup", { method: "POST" });
+        const json = await response.json();
+        resultBox.className = response.ok ? "empty ok" : "empty warn";
+        resultBox.textContent = response.ok
+          ? "cleanup deleted=" + json.deletedCount + ", kept=" + json.keptCount
+          : (json.message || json.error || "cleanup failed");
+      });
+    });
+    document.querySelectorAll("[data-review]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        if (!resultBox) return;
+        const id = button.getAttribute("data-review");
+        const status = button.getAttribute("data-status");
+        const response = await fetch("/ops/review-queue/" + encodeURIComponent(id) + "/decision", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ status, reviewer: "ops-ui" }),
+        });
+        const json = await response.json();
+        resultBox.className = response.ok ? "empty ok" : "empty warn";
+        resultBox.textContent = response.ok
+          ? "review " + json.id + " -> " + json.status
+          : (json.message || json.error || "review decision failed");
+      });
+    });
     function escapeHtml(value) {
       return String(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
     }
@@ -325,6 +408,7 @@ function styles(): string {
     .pill { color:var(--paper); border:1px solid rgba(255,255,255,.28); border-radius:999px; padding:9px 13px; text-decoration:none; background:rgba(255,255,255,.08); }
     .inline { margin-top:12px; }
     button { border:0; border-radius:999px; padding:10px 14px; color:#fffaf0; background:var(--accent); cursor:pointer; font:inherit; }
+    button.secondary { background:#49635a; }
     button:hover { filter:brightness(.95); }
     label { display:grid; gap:6px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
     input,select { width:100%; border:1px solid var(--line); border-radius:12px; padding:10px 11px; background:#fff; color:var(--ink); font:14px var(--mono); }

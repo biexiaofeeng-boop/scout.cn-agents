@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import { OpsActionService } from "./ops/opsActionService.js";
+import { OpsReviewService } from "./ops/opsReviewService.js";
 import { OpsService } from "./ops/opsService.js";
 import { renderOpsPage } from "./ops/opsPages.js";
 import type { OpsActionName } from "./ops/types.js";
@@ -9,6 +10,7 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
   const app = Fastify({ logger: true });
   const opsService = new OpsService(pipeline);
   const opsActionService = new OpsActionService(pipeline);
+  const opsReviewService = new OpsReviewService(pipeline.settings.runtimeRoot);
 
   app.get("/health", async () => {
     return {
@@ -29,6 +31,8 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
   app.post("/run-once", async () => pipeline.runOnce());
 
   app.get("/ops/overview.json", async () => opsService.buildOverview());
+
+  app.post("/ops/runs/cleanup", async () => opsActionService.cleanupRuns());
 
   app.post("/ops/runs/:action", async (req, reply) => {
     const action = (req.params as { action?: string }).action as OpsActionName;
@@ -58,6 +62,39 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
 
   app.get("/ops/runs/:runId/logs", async (req) => {
     return { logs: await opsActionService.readRunLogs((req.params as { runId: string }).runId) };
+  });
+
+  app.post("/ops/runs/:runId/retry", async (req, reply) => {
+    try {
+      return await opsActionService.retry((req.params as { runId: string }).runId);
+    } catch (err) {
+      reply.status(400);
+      return {
+        error: "ops_retry_rejected",
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  app.get("/ops/review-queue", async () => ({ items: await opsReviewService.list(100) }));
+
+  app.post("/ops/review-queue/:id/decision", async (req, reply) => {
+    const body = (req.body || {}) as { status?: string; reviewer?: string; decisionNote?: string };
+    if (body.status !== "approved" && body.status !== "rejected") {
+      reply.status(400);
+      return { error: "invalid_review_status" };
+    }
+    const item = await opsReviewService.decide(
+      (req.params as { id: string }).id,
+      body.status,
+      body.reviewer,
+      body.decisionNote,
+    );
+    if (!item) {
+      reply.status(404);
+      return { error: "review_item_not_found" };
+    }
+    return item;
   });
 
   app.get("/ops", async (_req, reply) => {

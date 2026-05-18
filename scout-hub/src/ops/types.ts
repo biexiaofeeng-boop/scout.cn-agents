@@ -54,12 +54,56 @@ export type OpsActionRunSummary = {
 export type OpsActionRun = OpsActionRunSummary & {
   query: string;
   limit: number;
+  input: OpsActionInputRecord;
   commandCount: number;
   successfulCommandCount: number;
   failedCommandCount: number;
   itemPath: string;
   logPath: string;
   summaryPath: string;
+};
+
+export type OpsActionInputRecord = {
+  topicId: string;
+  providers: string[];
+  query: string;
+  limit: number;
+  dryRun: boolean;
+  includeDryRun: boolean;
+  gameIds: string[];
+  appId: string;
+  subreddit: string;
+};
+
+export type OpsRunCleanupResult = {
+  runsDir: string;
+  retentionDays: number;
+  retentionMax: number;
+  deletedCount: number;
+  keptCount: number;
+  deletedRunIds: string[];
+};
+
+export type OpsReviewStatus = "pending" | "approved" | "rejected";
+
+export type OpsReviewItem = {
+  id: string;
+  status: OpsReviewStatus;
+  createdAt: string;
+  updatedAt: string;
+  runId: string;
+  action: OpsActionName;
+  topicId: string;
+  vertical: string;
+  providers: string[];
+  dryRun: boolean;
+  rawRecordCount: number;
+  normalizedEvidenceCount: number;
+  normalizedPath: string;
+  handoffPath: string;
+  reportPath: string;
+  reviewer?: string;
+  decisionNote?: string;
 };
 
 export type OpsArtifactState = {
@@ -94,6 +138,7 @@ export type OpsOverview = {
   topics: Array<OpsTopic & { artifacts: OpsArtifactState }>;
   recentRuns: PipelineRun[];
   recentOpsRuns: OpsActionRunSummary[];
+  reviewQueue: OpsReviewItem[];
   summary: {
     topicCount: number;
     activeTopicCount: number;
@@ -103,5 +148,6 @@ export type OpsOverview = {
     topicsWithReport: number;
     rawRecordCount: number;
     normalizedEvidenceCount: number;
+    pendingReviewCount: number;
   };
 };

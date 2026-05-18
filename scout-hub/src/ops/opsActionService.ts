@@ -4,7 +4,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { ScoutPipeline } from "../pipeline.js";
 import { loadOpsTopics, OPS_COLLECTABLE_PROVIDER_IDS, OPS_PROVIDERS, providersWithEnvState } from "./opsRegistry.js";
-import type { OpsActionName, OpsActionRun, OpsActionRunStatus, OpsTopic } from "./types.js";
+import { OpsReviewService } from "./opsReviewService.js";
+import type { OpsActionInputRecord, OpsActionName, OpsActionRun, OpsActionRunStatus, OpsRunCleanupResult, OpsTopic } from "./types.js";
 
 type OpsActionInput = {
   topicId?: unknown;
@@ -38,13 +39,18 @@ type PreparedRequest = {
   gameIds: string[];
   appId: string;
   subreddit: string;
+  inputRecord: OpsActionInputRecord;
 };
 
 const COLLECTABLE_PROVIDER_IDS = new Set<string>(OPS_COLLECTABLE_PROVIDER_IDS);
 const MAX_LOG_TEXT = 16_000;
 
 export class OpsActionService {
-  constructor(private readonly pipeline: ScoutPipeline) {}
+  private readonly reviewService: OpsReviewService;
+
+  constructor(private readonly pipeline: ScoutPipeline) {
+    this.reviewService = new OpsReviewService(pipeline.settings.runtimeRoot);
+  }
 
   async run(action: OpsActionName, input: OpsActionInput): Promise<OpsActionRun> {
     const prepared = await this.prepareRequest(action, input);
@@ -128,6 +134,7 @@ export class OpsActionService {
       errorText: errorText || firstCommandError(commandResults),
       query: prepared.query,
       limit: prepared.limit,
+      input: prepared.inputRecord,
       commandCount: commandResults.length,
       successfulCommandCount,
       failedCommandCount,
@@ -142,8 +149,71 @@ export class OpsActionService {
     });
     await writeJson(summaryPath, summary);
     await fs.writeFile(reportPath, buildRunReport(summary, commandResults), "utf-8");
+    await this.reviewService.createFromRun(summary, normalized);
+    await this.cleanupRuns();
     await log(status === "success" ? "info" : "warn", `Finished ${action} with status=${status}`, { runId, status });
     return summary;
+  }
+
+  async retry(runId: string): Promise<OpsActionRun> {
+    const run = await this.readRun(runId);
+    if (!run) throw new Error("Run not found.");
+    const action = stringValue(run.action) as OpsActionName;
+    if (!["collect-topic", "normalize-topic", "collect-and-normalize-topic"].includes(action)) {
+      throw new Error("Run action cannot be retried.");
+    }
+    const input = run.input && typeof run.input === "object"
+      ? run.input as OpsActionInputRecord
+      : fallbackInputFromRun(run);
+    return this.run(action, input);
+  }
+
+  async cleanupRuns(): Promise<OpsRunCleanupResult> {
+    const runsDir = path.join(this.pipeline.settings.runtimeRoot, "runs");
+    const retentionDays = this.pipeline.settings.opsRunRetentionDays;
+    const retentionMax = this.pipeline.settings.opsRunRetentionMax;
+    let entries: Array<{ runId: string; runDir: string; startedAt: string; mtimeMs: number }> = [];
+    try {
+      const dirents = await fs.readdir(runsDir, { withFileTypes: true });
+      entries = await Promise.all(dirents
+        .filter((entry) => entry.isDirectory() && entry.name.startsWith("scout_run_"))
+        .map(async (entry) => {
+          const runDir = path.join(runsDir, entry.name);
+          const stat = await fs.stat(runDir);
+          const summary = await readJson(path.join(runDir, "summary.json"));
+          return {
+            runId: entry.name,
+            runDir,
+            startedAt: stringValue(summary?.startedAt),
+            mtimeMs: stat.mtimeMs,
+          };
+        }));
+    } catch {
+      return { runsDir, retentionDays, retentionMax, deletedCount: 0, keptCount: 0, deletedRunIds: [] };
+    }
+
+    const now = Date.now();
+    const cutoffMs = retentionDays > 0 ? now - retentionDays * 24 * 60 * 60 * 1000 : 0;
+    const sorted = entries.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    const keepByMax = new Set(sorted.slice(0, Math.max(1, retentionMax)).map((entry) => entry.runId));
+    const toDelete = sorted.filter((entry) => {
+      const olderThanCutoff = retentionDays > 0 && entry.mtimeMs < cutoffMs;
+      const overMax = retentionMax > 0 && !keepByMax.has(entry.runId);
+      return olderThanCutoff || overMax;
+    });
+
+    for (const entry of toDelete) {
+      await fs.rm(entry.runDir, { recursive: true, force: true });
+    }
+
+    return {
+      runsDir,
+      retentionDays,
+      retentionMax,
+      deletedCount: toDelete.length,
+      keptCount: sorted.length - toDelete.length,
+      deletedRunIds: toDelete.map((entry) => entry.runId),
+    };
   }
 
   async readRun(runId: string): Promise<Record<string, unknown> | undefined> {
@@ -186,16 +256,35 @@ export class OpsActionService {
       }
     }
 
+    const query = stringValue(input.query) || topic.name;
+    const limit = boundedInt(input.limit, 10, 1, 25);
+    const dryRun = boolValue(input.dryRun);
+    const includeDryRun = boolValue(input.includeDryRun);
+    const gameIds = stringList(input.gameIds);
+    const appId = stringValue(input.appId);
+    const subreddit = stringValue(input.subreddit);
+
     return {
       topic,
       providers,
-      query: stringValue(input.query) || topic.name,
-      limit: boundedInt(input.limit, 10, 1, 25),
-      dryRun: boolValue(input.dryRun),
-      includeDryRun: boolValue(input.includeDryRun),
-      gameIds: stringList(input.gameIds),
-      appId: stringValue(input.appId),
-      subreddit: stringValue(input.subreddit),
+      query,
+      limit,
+      dryRun,
+      includeDryRun,
+      gameIds,
+      appId,
+      subreddit,
+      inputRecord: {
+        topicId: topic.id,
+        providers,
+        query,
+        limit,
+        dryRun,
+        includeDryRun,
+        gameIds,
+        appId,
+        subreddit,
+      },
     };
   }
 
@@ -331,9 +420,23 @@ function collectedRecordCount(results: CommandResult[]): number {
   }, 0);
 }
 
-function latestNormalizeParsed(results: CommandResult[]): { rawRecordCount?: unknown; evidenceCount?: unknown } | undefined {
+function fallbackInputFromRun(run: Record<string, unknown>): OpsActionInputRecord {
+  return {
+    topicId: stringValue(run.topicId),
+    providers: stringList(run.providers),
+    query: stringValue(run.query),
+    limit: boundedInt(run.limit, 10, 1, 25),
+    dryRun: boolValue(run.dryRun),
+    includeDryRun: boolValue(run.includeDryRun),
+    gameIds: stringList(run.gameIds),
+    appId: stringValue(run.appId),
+    subreddit: stringValue(run.subreddit),
+  };
+}
+
+function latestNormalizeParsed(results: CommandResult[]): Record<string, unknown> | undefined {
   const normalized = [...results].reverse().find((result) => result.label === "normalize" && result.parsed);
-  return normalized?.parsed as { rawRecordCount?: unknown; evidenceCount?: unknown } | undefined;
+  return normalized?.parsed as Record<string, unknown> | undefined;
 }
 
 function stringValue(value: unknown): string {

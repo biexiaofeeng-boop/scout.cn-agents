@@ -56,8 +56,12 @@ cd /Users/sourcefire/1data/scout-lab/scout-deploy
 - `Collect Topic`
 - `Normalize Topic`
 - `Collect + Normalize`
+- failed / partial run retry
+- run cleanup
+- review queue approve / reject
 
 每次动作会写入 `/Users/sourcefire/1data/scout/runs/<run-id>/`，包括 `run.json`、`logs.jsonl`、`items.jsonl`、`summary.json` 和 `report.md`。
+归一化动作会生成 `/Users/sourcefire/1data/scout/review-queue/<review-id>.json`，用于后续进入调度前的人工审阅。
 
 ## 运行输出
 

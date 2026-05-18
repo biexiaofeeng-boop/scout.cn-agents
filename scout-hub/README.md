@@ -6,6 +6,7 @@ TS control-plane for staged migration (Phase A + Phase B):
 - Phase B: keep existing Python crawlers as data providers (no rewrite required yet)
 - SO1: readonly Ops Console for topic/provider/runtime artifact observability
 - SO2: guarded Ops actions for topic collection, normalization, run records, and reports
+- SO2.1: retry, run cleanup, and review queue gates before scheduler editing
 
 ## Commands
 
@@ -27,6 +28,10 @@ POST http://127.0.0.1:18080/ops/runs/normalize-topic
 POST http://127.0.0.1:18080/ops/runs/collect-and-normalize-topic
 GET  http://127.0.0.1:18080/ops/runs/<run-id>
 GET  http://127.0.0.1:18080/ops/runs/<run-id>/logs
+POST http://127.0.0.1:18080/ops/runs/<run-id>/retry
+POST http://127.0.0.1:18080/ops/runs/cleanup
+GET  http://127.0.0.1:18080/ops/review-queue
+POST http://127.0.0.1:18080/ops/review-queue/<review-id>/decision
 ```
 
 SO2 actions are intentionally constrained:
@@ -36,6 +41,7 @@ SO2 actions are intentionally constrained:
 - YouTube live collection requires `YOUTUBE_API_KEY`; use dry-run for wiring checks before configuring it
 - no arbitrary shell command input from the UI or API
 - run records are written to `SCOUT_RUNTIME_ROOT/runs/<run-id>/`
+- review records are written to `SCOUT_RUNTIME_ROOT/review-queue/<review-id>.json`
 
 ## Environment
 
@@ -50,6 +56,8 @@ Copy `.env.example` to `.env` if needed.
 - `SCOUT_BATCH_SIZE` default: `500`
 - `SCOUT_ALERT_DLQ_THRESHOLD` default: `10`
 - `SCOUT_OPS_ACTION_TIMEOUT_MS` default: `180000`
+- `SCOUT_OPS_RUN_RETENTION_DAYS` default: `30`
+- `SCOUT_OPS_RUN_RETENTION_MAX` default: `300`
 - `SCOUT_MONITOR_HOST` default: `127.0.0.1`
 - `SCOUT_MONITOR_PORT` default: `18080`
 - `YOUTUBE_API_KEY` optional: required only for live YouTube collection
