@@ -22,6 +22,7 @@ export type CollectionRequest = {
   limit: number;
   appId?: string;
   subreddit?: string;
+  mediaCrawlerRoot?: string;
   dryRun?: boolean;
 };
 

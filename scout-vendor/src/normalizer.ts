@@ -13,7 +13,14 @@ export type GameLensEvidenceSource =
   | "meta_ad"
   | "google_ad"
   | "app_store_review"
-  | "google_play_review";
+  | "google_play_review"
+  | "weibo"
+  | "bilibili"
+  | "douyin"
+  | "xiaohongshu"
+  | "zhihu"
+  | "tieba"
+  | "kuaishou";
 
 export type GameLensEvidenceItem = {
   id: string;
@@ -234,6 +241,12 @@ function mapEvidenceSource(record: VendorEvidenceRecord): GameLensEvidenceSource
   if (record.provider === "reddit") return "reddit";
   if (record.provider === "youtube") return "youtube";
   if (record.provider === "steam" && record.source === "steam_review") return "steam_review";
+  if (record.provider === "mediacrawler") {
+    // record.source looks like "mediacrawler_<platform>"; pull the platform half
+    const platform = record.source.replace(/^mediacrawler_/, "");
+    const allowed: GameLensEvidenceSource[] = ["weibo", "bilibili", "douyin", "xiaohongshu", "zhihu", "tieba", "kuaishou"];
+    if ((allowed as string[]).includes(platform)) return platform as GameLensEvidenceSource;
+  }
   return "manual";
 }
 

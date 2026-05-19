@@ -1,4 +1,5 @@
 import path from "node:path";
+import { collectMediaCrawler } from "./connectors/mediacrawler.js";
 import { collectReddit } from "./connectors/reddit.js";
 import { collectSteam } from "./connectors/steam.js";
 import { collectYouTube } from "./connectors/youtube.js";
@@ -39,6 +40,7 @@ async function collectRecords(request: CollectionRequest): Promise<VendorEvidenc
   if (request.provider === "steam") return collectSteam(request);
   if (request.provider === "youtube") return collectYouTube(request);
   if (request.provider === "reddit") return collectReddit(request);
+  if (request.provider === "mediacrawler") return collectMediaCrawler(request);
   throw new Error(`Provider ${request.provider} is registered but has no connector implementation yet`);
 }
 

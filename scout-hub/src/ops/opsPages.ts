@@ -830,20 +830,22 @@ function clientScript(): string {
       drawerActions.innerHTML = '<button type="button" data-drawer-close class="pill secondary">Close</button>';
       openDrawer();
       try {
-        const [runResp, logsResp] = await Promise.all([
+        const [runResp, logsResp, previewResp] = await Promise.all([
           fetch("/ops/runs/" + encodeURIComponent(runId)),
           fetch("/ops/runs/" + encodeURIComponent(runId) + "/logs"),
+          fetch("/ops/review-queue/" + encodeURIComponent("review_" + runId) + "/preview.json"),
         ]);
         const run = await runResp.json();
         const logsJson = logsResp.ok ? await logsResp.json() : { logs: [] };
+        const preview = previewResp.ok ? await previewResp.json() : null;
         if (!runResp.ok) throw new Error(run.message || run.error || "run not found");
-        renderRunDrawer(run, logsJson.logs || []);
+        renderRunDrawer(run, logsJson.logs || [], preview);
       } catch (error) {
         drawerBody.innerHTML = '<div class="empty warn">' + escapeHtml(error instanceof Error ? error.message : String(error)) + '</div>';
       }
     }
 
-    function renderRunDrawer(run, logs) {
+    function renderRunDrawer(run, logs, preview) {
       if (!drawerBody || !drawerActions) return;
       const cmds = Array.isArray(run.commandResults) ? run.commandResults : [];
       const providers = Array.isArray(run.providers) ? run.providers : [];
@@ -896,15 +898,34 @@ function clientScript(): string {
         html += '</tbody></table>';
       }
 
+      // Sample data section (from review preview if normalize ran)
+      if (preview && Array.isArray(preview.normalizedSample) && preview.normalizedSample.length > 0) {
+        html += '<h3 style="margin:18px 0 8px;font-size:15px">Sample Data <span class="muted">(' + preview.normalizedSample.length + ' of normalized output)</span></h3>';
+        html += '<table><thead><tr><th>Source</th><th>Title</th><th>URL</th></tr></thead><tbody>';
+        for (const row of preview.normalizedSample) {
+          const url = String(row.sourceUrl || row.url || "");
+          const title = String(row.title || row.headline || "").slice(0, 200);
+          html += '<tr>' +
+            '<td>' + escapeHtml(String(row.source || row.platform || "?")) + '</td>' +
+            '<td>' + escapeHtml(title || "(no title)") + '</td>' +
+            '<td class="mono">' + (url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' + escapeHtml(url.slice(0, 80)) + '</a>' : "—") + '</td>' +
+            '</tr>';
+        }
+        html += '</tbody></table>';
+        if (preview.item && preview.item.id) {
+          html += '<div class="muted" style="margin-top:6px;font-size:11px">↗ <a href="/ops/review-queue/' + encodeURIComponent(preview.item.id) + '/preview" target="_blank">open full preview</a></div>';
+        }
+      }
+
       html += '<details style="margin-top:18px"><summary>Logs (' + logs.length + ' entries)</summary>';
       html += '<pre class="mono" style="white-space:pre-wrap;max-height:300px;overflow:auto;background:#fff;padding:12px;border-radius:8px;border:1px solid var(--line);margin-top:8px">';
       html += logs.slice(-30).map((l) => escapeHtml((l.timestamp || "") + " [" + (l.level || "") + "] " + (l.message || ""))).join("\\n");
       html += '</pre></details>';
 
       html += '<details style="margin-top:8px"><summary>Paths</summary><table class="kv" style="margin-top:8px">' +
-        '<tr><th>runDir</th><td class="mono">' + escapeHtml(run.runDir || "") + '</td></tr>' +
-        '<tr><th>reportPath</th><td class="mono">' + escapeHtml(run.reportPath || "") + '</td></tr>' +
-        '<tr><th>logPath</th><td class="mono">' + escapeHtml(run.logPath || "") + '</td></tr>' +
+        '<tr><th>runDir</th><td><span class="mono">' + escapeHtml(run.runDir || "") + '</span> <button type="button" data-copy="' + escapeHtml(run.runDir || "") + '" class="pill secondary" style="padding:2px 8px;font-size:11px">copy</button></td></tr>' +
+        '<tr><th>reportPath</th><td><span class="mono">' + escapeHtml(run.reportPath || "") + '</span> <button type="button" data-copy="' + escapeHtml(run.reportPath || "") + '" class="pill secondary" style="padding:2px 8px;font-size:11px">copy</button></td></tr>' +
+        '<tr><th>logPath</th><td><span class="mono">' + escapeHtml(run.logPath || "") + '</span> <button type="button" data-copy="' + escapeHtml(run.logPath || "") + '" class="pill secondary" style="padding:2px 8px;font-size:11px">copy</button></td></tr>' +
         '</table></details>';
 
       drawerBody.innerHTML = html;
@@ -929,6 +950,19 @@ function clientScript(): string {
           closeDrawer();
           if (response.ok) setTimeout(refreshCurrentTab, 400);
         }));
+      });
+      drawerBody.querySelectorAll("[data-copy]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const value = btn.getAttribute("data-copy") || "";
+          try {
+            await navigator.clipboard.writeText(value);
+            const orig = btn.textContent;
+            btn.textContent = "copied";
+            setTimeout(() => { btn.textContent = orig; }, 1200);
+          } catch (_) {
+            btn.textContent = "select & ⌘C";
+          }
+        });
       });
     }
 

@@ -49,7 +49,7 @@ export const OPS_PROVIDERS: Array<Omit<OpsProvider, "envState">> = [
   },
 ];
 
-export const OPS_COLLECTABLE_PROVIDER_IDS = ["steam", "youtube", "reddit"] as const;
+export const OPS_COLLECTABLE_PROVIDER_IDS = ["steam", "youtube", "reddit", "mediacrawler"] as const;
 
 export async function loadOpsTopics(topicConfigPath: string): Promise<OpsTopic[]> {
   try {

@@ -353,6 +353,7 @@ export class OpsActionService {
     if (prepared.dryRun) args.push("--dry-run");
     if (provider === "steam" && prepared.appId) args.push("--app-id", prepared.appId);
     if (provider === "reddit" && prepared.subreddit) args.push("--subreddit", prepared.subreddit);
+    if (provider === "mediacrawler") args.push("--mediacrawler-root", this.pipeline.settings.mediaCrawlerRoot);
     await log("info", `Collecting provider=${provider}`, { provider });
     return this.runVendorCommand(`collect:${provider}`, args);
   }

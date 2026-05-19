@@ -65,10 +65,10 @@ describe("OpsActionService.prepareRequest", () => {
 
   it("throws when provider is not in OPS_COLLECTABLE_PROVIDER_IDS", async () => {
     await writeTopicCatalog(tempDir, [
-      { id: "t1", projectId: "scout", name: "T1", vertical: "game", dataSources: ["mediacrawler"], status: "active" },
+      { id: "t1", projectId: "scout", name: "T1", vertical: "game", dataSources: ["wechat-spider"], status: "active" },
     ]);
     const service = new OpsActionService(makeMockPipeline(tempDir));
-    await expect(() => (service as unknown as { prepareRequest: Function }).prepareRequest("collect-topic", { topicId: "t1", providers: ["mediacrawler"] }))
+    await expect(() => (service as unknown as { prepareRequest: Function }).prepareRequest("collect-topic", { topicId: "t1", providers: ["wechat-spider"] }))
       .rejects.toThrow(/not enabled for SO2/);
   });
 

@@ -47,6 +47,7 @@ function requestFromOptions(options: Options): CollectionRequest {
   if (!query) throw new Error("--query is required");
   const appId = stringOption(options, "app-id");
   const subreddit = stringOption(options, "subreddit");
+  const mediaCrawlerRoot = stringOption(options, "mediacrawler-root");
   return {
     provider,
     topicId,
@@ -58,6 +59,7 @@ function requestFromOptions(options: Options): CollectionRequest {
     dryRun: options["dry-run"] === true,
     ...(appId ? { appId } : {}),
     ...(subreddit ? { subreddit } : {}),
+    ...(mediaCrawlerRoot ? { mediaCrawlerRoot } : {}),
   };
 }
 
