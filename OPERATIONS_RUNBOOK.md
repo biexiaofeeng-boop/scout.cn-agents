@@ -291,10 +291,33 @@ cd scout-deploy && docker compose build && docker compose up -d
 
 ## 6. 历史路径（已冻结，仅供参考）
 
-`intel_hub/`（Python FastAPI + SQLite/MySQL pipeline）是 2025 年
-的原始控制平面，现已被 scout-hub 取代，目录保留以便参考代码 +
-数据迁移历史。
+`intel_hub/` 已删除——它的"unified ingestion for MediaCrawler + wechat-spider"
+定位与 scout-hub 完全重叠，scout-hub 已经在事实上取代了它的全部职责
+（pipeline / scheduler / monitor / retry / DLQ）。如果需要历史代码，
+看 git 历史 commit 之前的版本。
 
 `scout-hub-scheduler` 容器默认禁用旧 pipeline tick
-（`SCOUT_PIPELINE_TICK_ENABLED=false`），所以也不会去消费
-intel_hub 风格的 pipeline 数据。
+（`SCOUT_PIPELINE_TICK_ENABLED=false`），避免去消费已经无主的
+pipeline 数据。
+
+---
+
+## 7. Git 边界与目录契约
+
+scout-lab 和 `scout/`（运行时目录）有明确的边界，**不要尝试统一**：
+
+| 目录 | 角色 | git 状态 |
+|---|---|---|
+| `scout-lab/` | 源代码 + 配置（topic 定义 / seed 关键词 / docker / env） | ✓ git 管理（origin: github） |
+| `scout/`（即 `$SCOUT_RUNTIME_ROOT`） | 运行时输出（runs / reviews / schedules / handoff） | ✗ **不 git** |
+
+约定通过 `SCOUT_RUNTIME_ROOT` env 变量连接，默认值
+`<projectRoot>/../scout`，docker 内通过 `scout-deploy/docker-compose.yml`
+的 volume mount 提供。
+
+`scout/README.md` 详细说明了运行时目录的子结构和备份建议。
+**新加入团队的成员**：clone scout-lab 后，env 一配，运行时目录会
+自动产生，不需要任何 scout/ 初始化步骤。
+
+如果有"需要 git 管理的初始化数据"，正确的位置是 `scout-lab/scout-media-agents/config/`
+（例如把 topic 定义、seed 关键词配置写到那里），而不是 `scout/`。
