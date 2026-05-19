@@ -1,8 +1,9 @@
 import Fastify from "fastify";
 import { OpsActionService } from "./ops/opsActionService.js";
 import { OpsReviewService } from "./ops/opsReviewService.js";
+import { OpsScheduleService, type OpsScheduleCreateInput, type OpsScheduleUpdateInput } from "./ops/opsScheduleService.js";
 import { OpsService } from "./ops/opsService.js";
-import { renderOpsPage } from "./ops/opsPages.js";
+import { renderOpsPage, renderRunDetailPage, renderReviewPreviewPage } from "./ops/opsPages.js";
 import type { OpsActionName } from "./ops/types.js";
 import { ScoutPipeline } from "./pipeline.js";
 
@@ -11,6 +12,7 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
   const opsService = new OpsService(pipeline);
   const opsActionService = new OpsActionService(pipeline);
   const opsReviewService = new OpsReviewService(pipeline.settings.runtimeRoot);
+  const opsScheduleService = new OpsScheduleService(pipeline.settings.runtimeRoot);
 
   app.get("/health", async () => {
     return {
@@ -95,6 +97,74 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
       return { error: "review_item_not_found" };
     }
     return item;
+  });
+
+  app.get("/ops/schedules", async () => ({ items: await opsScheduleService.list(200) }));
+
+  app.post("/ops/schedules", async (req, reply) => {
+    try {
+      return await opsScheduleService.create((req.body || {}) as OpsScheduleCreateInput);
+    } catch (err) {
+      reply.status(400);
+      return { error: "schedule_create_rejected", message: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  app.patch("/ops/schedules/:id", async (req, reply) => {
+    try {
+      const item = await opsScheduleService.update((req.params as { id: string }).id, (req.body || {}) as OpsScheduleUpdateInput);
+      if (!item) {
+        reply.status(404);
+        return { error: "schedule_not_found" };
+      }
+      return item;
+    } catch (err) {
+      reply.status(400);
+      return { error: "schedule_update_rejected", message: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  app.delete("/ops/schedules/:id", async (req, reply) => {
+    const ok = await opsScheduleService.delete((req.params as { id: string }).id);
+    if (!ok) {
+      reply.status(404);
+      return { error: "schedule_not_found" };
+    }
+    return { deleted: true };
+  });
+
+  app.post("/ops/schedules/:id/run-now", async (req, reply) => {
+    try {
+      const result = await opsScheduleService.runNow((req.params as { id: string }).id, opsActionService);
+      if (!result) {
+        reply.status(404);
+        return { error: "schedule_not_found" };
+      }
+      return result;
+    } catch (err) {
+      reply.status(400);
+      return { error: "schedule_run_now_rejected", message: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  app.get("/ops/runs/:runId/view", async (req, reply) => {
+    const run = await opsActionService.readRun((req.params as { runId: string }).runId);
+    if (!run) {
+      reply.status(404);
+      return { error: "run_not_found" };
+    }
+    reply.type("text/html; charset=utf-8");
+    return renderRunDetailPage(run);
+  });
+
+  app.get("/ops/review-queue/:id/preview", async (req, reply) => {
+    const preview = await opsReviewService.getPreview((req.params as { id: string }).id);
+    if (!preview) {
+      reply.status(404);
+      return { error: "review_item_not_found" };
+    }
+    reply.type("text/html; charset=utf-8");
+    return renderReviewPreviewPage(preview);
   });
 
   app.get("/ops", async (_req, reply) => {

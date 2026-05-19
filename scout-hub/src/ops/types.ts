@@ -90,6 +90,29 @@ export type OpsRunCleanupResult = {
 
 export type OpsReviewStatus = "pending" | "approved" | "rejected";
 
+export type OpsScheduleStatus = "active" | "paused";
+
+export type OpsSchedule = {
+  id: string;
+  topicId: string;
+  projectId: string;
+  providers: string[];
+  action: OpsActionName;
+  query?: string;
+  limit: number;
+  dryRun: boolean;
+  cron: string;
+  timezone: string;
+  status: OpsScheduleStatus;
+  lastRunAt?: string;
+  lastRunId?: string;
+  lastRunStatus?: OpsActionRunStatus;
+  nextRunAt: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+};
+
 export type OpsReviewItem = {
   id: string;
   status: OpsReviewStatus;
@@ -139,6 +162,7 @@ export type OpsOverview = {
   projectRoot: string;
   runtimeRoot: string;
   topicConfigPath: string;
+  showPipelineViews: boolean;
   hubHealth: unknown;
   alerts: Array<{ level: string; code: string; message: string }>;
   providers: OpsProvider[];
@@ -146,6 +170,7 @@ export type OpsOverview = {
   recentRuns: PipelineRun[];
   recentOpsRuns: OpsActionRunSummary[];
   reviewQueue: OpsReviewItem[];
+  schedules: OpsSchedule[];
   summary: {
     topicCount: number;
     activeTopicCount: number;
@@ -156,5 +181,6 @@ export type OpsOverview = {
     rawRecordCount: number;
     normalizedEvidenceCount: number;
     pendingReviewCount: number;
+    activeScheduleCount: number;
   };
 };

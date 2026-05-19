@@ -1,4 +1,4 @@
-import type { OpsArtifactState, OpsOverview } from "./types.js";
+import type { OpsArtifactState, OpsOverview, OpsReviewItem } from "./types.js";
 
 export function renderOpsPage(overview: OpsOverview): string {
   return `<!doctype html>
@@ -33,7 +33,7 @@ export function renderOpsPage(overview: OpsOverview): string {
       ${metricCard("Review", overview.summary.pendingReviewCount, "pending")}
     </section>
 
-    <section class="grid two">
+    ${overview.showPipelineViews ? `<section class="grid two">
       <article class="panel">
         <div class="panel-head"><h2>Hub Health</h2><span>${h(overview.generatedAt)}</span></div>
         ${renderHealth(overview)}
@@ -42,7 +42,10 @@ export function renderOpsPage(overview: OpsOverview): string {
         <div class="panel-head"><h2>Alerts</h2><span>${overview.alerts.length} active</span></div>
         ${renderAlerts(overview)}
       </article>
-    </section>
+    </section>` : `<section class="panel">
+      <div class="panel-head"><h2>Alerts</h2><span>${overview.alerts.length} active</span></div>
+      ${renderAlerts(overview)}
+    </section>`}
 
     <section class="panel">
       <div class="panel-head"><h2>Providers</h2><span>Secrets are never rendered</span></div>
@@ -55,6 +58,11 @@ export function renderOpsPage(overview: OpsOverview): string {
     </section>
 
     <section class="panel">
+      <div class="panel-head"><h2>Schedules</h2><span>${overview.schedules.length} total, ${overview.summary.activeScheduleCount} active</span></div>
+      ${renderSchedules(overview)}
+    </section>
+
+    <section class="panel">
       <div class="panel-head"><h2>Topics And Runtime Artifacts</h2><span>${h(overview.runtimeRoot)}</span></div>
       ${renderTopics(overview)}
     </section>
@@ -64,7 +72,7 @@ export function renderOpsPage(overview: OpsOverview): string {
       ${renderReviewQueue(overview)}
     </section>
 
-    <section class="grid two">
+    ${overview.showPipelineViews ? `<section class="grid two">
       <article class="panel">
         <div class="panel-head"><h2>Recent Hub Runs</h2><span>${overview.recentRuns.length} rows</span></div>
         ${renderRuns(overview)}
@@ -73,7 +81,10 @@ export function renderOpsPage(overview: OpsOverview): string {
         <div class="panel-head"><h2>Recent Ops Runs</h2><span>${overview.recentOpsRuns.length} rows</span></div>
         ${renderOpsRuns(overview)}
       </article>
-    </section>
+    </section>` : `<section class="panel">
+      <div class="panel-head"><h2>Recent Ops Runs</h2><span>${overview.recentOpsRuns.length} rows</span></div>
+      ${renderOpsRuns(overview)}
+    </section>`}
 
     <section class="panel">
       <div class="panel-head"><h2>Operator Notes</h2><span>SO2 first pass</span></div>
@@ -133,7 +144,7 @@ function renderOpsActions(overview: OpsOverview): string {
     <form id="ops-action-form">
       <label>Topic
         <select name="topicId">
-          ${activeTopics.map((topic) => `<option value="${h(topic.id)}" data-query="${h(topic.name)}">${h(topic.name)} / ${h(topic.id)}</option>`).join("")}
+          ${activeTopics.map((topic) => `<option value="${h(topic.id)}" data-query="${h(topic.name)}" data-sources='${h(JSON.stringify(topic.dataSources))}'>${h(topic.name)} / ${h(topic.id)}</option>`).join("")}
         </select>
       </label>
       <label>Query
@@ -141,13 +152,15 @@ function renderOpsActions(overview: OpsOverview): string {
       </label>
       <label>Limit
         <input name="limit" type="number" min="1" max="25" value="10" />
+        <small class="muted">max 25 per run</small>
       </label>
       <div class="provider-checks">
         ${providers.map((provider) => {
           const missing = provider.envState === "missing";
           const disabled = missing ? "disabled" : "";
+          const initialChecked = !missing && (activeTopics[0]?.dataSources.includes(provider.id) ?? false);
           return `<label class="check ${missing ? "disabled" : ""}">
-            <input type="checkbox" name="providers" value="${h(provider.id)}" ${provider.id === "steam" || provider.id === "reddit" ? "checked" : ""} ${disabled} />
+            <input type="checkbox" name="providers" value="${h(provider.id)}" ${initialChecked ? "checked" : ""} ${disabled} />
             <span>${h(provider.id)}</span>
             ${missing ? `<small>missing env</small>` : ""}
           </label>`;
@@ -192,10 +205,11 @@ function renderReviewQueue(overview: OpsOverview): string {
         <div><b>handoff</b><div class="mono">${h(item.handoffPath || "n/a")}</div></div>
       </div></td>
       <td>
-        ${item.status === "pending" ? `<div class="hero-actions inline">
-          <button type="button" data-review="${h(item.id)}" data-status="approved">Approve</button>
-          <button type="button" data-review="${h(item.id)}" data-status="rejected" class="secondary">Reject</button>
-        </div>` : `<div class="muted">${h(item.decisionNote || "decided")}</div>`}
+        <div class="hero-actions inline">
+          <a href="/ops/review-queue/${h(item.id)}/preview" target="_blank" class="pill">Preview</a>
+          ${item.status === "pending" ? `<button type="button" data-review="${h(item.id)}" data-status="approved">Approve</button>
+          <button type="button" data-review="${h(item.id)}" data-status="rejected" class="secondary">Reject</button>` : `<span class="muted">${h(item.decisionNote || "decided")}</span>`}
+        </div>
       </td>
     </tr>`).join("")}</tbody>
   </table>`;
@@ -262,7 +276,7 @@ function renderOpsRuns(overview: OpsOverview): string {
     <table>
     <thead><tr><th>Run</th><th>Action</th><th>Status</th><th>Topic</th><th>Evidence</th><th>Ended</th><th>Action</th></tr></thead>
     <tbody>${overview.recentOpsRuns.map((run) => `<tr>
-      <td class="mono"><a href="/ops/runs/${h(run.runId)}">${h(run.runId)}</a></td>
+      <td class="mono"><a href="/ops/runs/${h(run.runId)}/view">${h(run.runId)}</a></td>
       <td>${tag(run.action)}</td>
       <td>${tag(run.status)}</td>
       <td><div class="mono">${h(run.topicId)}</div>${run.projectId ? tag(run.projectId) : ""}<div class="muted">${run.providers.map(h).join(", ")}</div></td>
@@ -299,13 +313,47 @@ function clientScript(): string {
     const form = document.getElementById("ops-action-form");
     const resultBox = document.getElementById("ops-action-result");
     const topicSelect = form?.querySelector("select[name=topicId]");
+    let previousTopicQuery = topicSelect?.selectedOptions[0]?.dataset?.query || "";
+
+    async function withButtonLock(button, label, fn) {
+      if (button.disabled) return;
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = label || "Running...";
+      try {
+        await fn();
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+
+    function updateProviderDefaults(option) {
+      if (!form || !option) return;
+      let sources = [];
+      try { sources = JSON.parse(option.dataset?.sources || "[]"); } catch (_) { sources = []; }
+      const set = new Set(sources);
+      form.querySelectorAll("input[name=providers]").forEach((checkbox) => {
+        if (checkbox.disabled) return;
+        checkbox.checked = set.has(checkbox.value);
+      });
+    }
+
     topicSelect?.addEventListener("change", () => {
       const option = topicSelect.selectedOptions[0];
-      const query = form.querySelector("input[name=query]");
-      if (query && option?.dataset?.query) query.value = option.dataset.query;
+      const queryInput = form?.querySelector("input[name=query]");
+      const nextTopicQuery = option?.dataset?.query || "";
+      if (queryInput) {
+        if (!queryInput.value || queryInput.value === previousTopicQuery) {
+          queryInput.value = nextTopicQuery;
+        }
+      }
+      previousTopicQuery = nextTopicQuery;
+      updateProviderDefaults(option);
     });
+
     document.querySelectorAll("[data-action]").forEach((button) => {
-      button.addEventListener("click", async () => {
+      button.addEventListener("click", () => withButtonLock(button, "Running…", async () => {
         if (!form || !resultBox) return;
         const action = button.getAttribute("data-action");
         const data = new FormData(form);
@@ -334,15 +382,16 @@ function clientScript(): string {
           resultBox.innerHTML = "<b>" + escapeHtml(json.status) + "</b> " + escapeHtml(json.runId) +
             " · raw=" + escapeHtml(String(json.rawRecordCount || 0)) +
             " · evidence=" + escapeHtml(String(json.normalizedEvidenceCount || 0)) +
-            " · <a href=\\"/ops/runs/" + encodeURIComponent(json.runId) + "\\">open run.json</a>";
+            " · <a href=\\"/ops/runs/" + encodeURIComponent(json.runId) + "/view\\">open run detail</a>";
         } catch (error) {
           resultBox.className = "empty warn";
           resultBox.textContent = error instanceof Error ? error.message : String(error);
         }
-      });
+      }));
     });
+
     document.querySelectorAll("[data-retry-run]").forEach((button) => {
-      button.addEventListener("click", async () => {
+      button.addEventListener("click", () => withButtonLock(button, "Retrying…", async () => {
         const runId = button.getAttribute("data-retry-run");
         if (!runId || !resultBox) return;
         resultBox.className = "empty";
@@ -357,21 +406,26 @@ function clientScript(): string {
           resultBox.className = "empty warn";
           resultBox.textContent = error instanceof Error ? error.message : String(error);
         }
-      });
+      }));
     });
+
     document.querySelectorAll("[data-cleanup-runs]").forEach((button) => {
-      button.addEventListener("click", async () => {
-        if (!resultBox) return;
-        const response = await fetch("/ops/runs/cleanup", { method: "POST" });
-        const json = await response.json();
-        resultBox.className = response.ok ? "empty ok" : "empty warn";
-        resultBox.textContent = response.ok
-          ? "cleanup deleted=" + json.deletedCount + ", kept=" + json.keptCount
-          : (json.message || json.error || "cleanup failed");
+      button.addEventListener("click", () => {
+        if (!confirm("Cleanup will delete old run directories based on retention policy. Continue?")) return;
+        withButtonLock(button, "Cleaning…", async () => {
+          if (!resultBox) return;
+          const response = await fetch("/ops/runs/cleanup", { method: "POST" });
+          const json = await response.json();
+          resultBox.className = response.ok ? "empty ok" : "empty warn";
+          resultBox.textContent = response.ok
+            ? "cleanup deleted=" + json.deletedCount + ", kept=" + json.keptCount
+            : (json.message || json.error || "cleanup failed");
+        });
       });
     });
+
     document.querySelectorAll("[data-review]").forEach((button) => {
-      button.addEventListener("click", async () => {
+      button.addEventListener("click", () => withButtonLock(button, "Saving…", async () => {
         if (!resultBox) return;
         const id = button.getAttribute("data-review");
         const status = button.getAttribute("data-status");
@@ -385,12 +439,396 @@ function clientScript(): string {
         resultBox.textContent = response.ok
           ? "review " + json.id + " -> " + json.status
           : (json.message || json.error || "review decision failed");
+      }));
+    });
+
+    const scheduleResult = document.getElementById("ops-schedule-result");
+    const scheduleForm = document.getElementById("ops-schedule-form");
+    const frequencySelect = scheduleForm?.querySelector("select[name=frequency]");
+    function updateFrequencyFields() {
+      if (!scheduleForm) return;
+      const value = frequencySelect?.value || "daily";
+      scheduleForm.querySelectorAll("[data-freq-show]").forEach((label) => {
+        label.style.display = (label.getAttribute("data-freq-show") === value) ? "" : "none";
+      });
+    }
+    frequencySelect?.addEventListener("change", updateFrequencyFields);
+    updateFrequencyFields();
+
+    const scheduleTopicSelect = scheduleForm?.querySelector("select[name=topicId]");
+    scheduleTopicSelect?.addEventListener("change", () => {
+      const option = scheduleTopicSelect.selectedOptions[0];
+      if (!option || !scheduleForm) return;
+      let sources = [];
+      try { sources = JSON.parse(option.dataset?.sources || "[]"); } catch (_) { sources = []; }
+      const set = new Set(sources);
+      scheduleForm.querySelectorAll("input[name=schedProviders]").forEach((checkbox) => {
+        if (checkbox.disabled) return;
+        checkbox.checked = set.has(checkbox.value);
       });
     });
+
+    function buildCron(form) {
+      const freq = form.querySelector("[name=frequency]")?.value || "daily";
+      const time = form.querySelector("[name=time]")?.value || "09:00";
+      const [hhRaw, mmRaw] = time.split(":");
+      const HH = Math.max(0, Math.min(23, parseInt(hhRaw, 10) || 0));
+      const MM = Math.max(0, Math.min(59, parseInt(mmRaw, 10) || 0));
+      if (freq === "daily") return MM + " " + HH + " * * *";
+      if (freq === "weekly") {
+        const wd = form.querySelector("[name=weekday]")?.value || "1";
+        return MM + " " + HH + " * * " + wd;
+      }
+      if (freq === "hourly") return MM + " * * * *";
+      if (freq === "every_n_hours") {
+        const raw = form.querySelector("[name=everyNHours]")?.value || "6";
+        const n = Math.max(1, Math.min(24, parseInt(raw, 10) || 6));
+        return MM + " */" + n + " * * *";
+      }
+      return MM + " " + HH + " * * *";
+    }
+
+    document.querySelectorAll("[data-schedule-create]").forEach((button) => {
+      button.addEventListener("click", () => withButtonLock(button, "Creating…", async () => {
+        if (!scheduleForm || !scheduleResult) return;
+        const data = new FormData(scheduleForm);
+        const topicOption = scheduleTopicSelect?.selectedOptions[0];
+        const payload = {
+          topicId: String(data.get("topicId") || ""),
+          projectId: String(topicOption?.dataset?.project || ""),
+          providers: data.getAll("schedProviders").map(String),
+          action: String(data.get("action") || "collect-and-normalize-topic"),
+          query: String(data.get("schedQuery") || "").trim() || undefined,
+          limit: Number(data.get("schedLimit") || 10),
+          dryRun: data.get("schedDryRun") === "on",
+          cron: buildCron(scheduleForm),
+          timezone: String(data.get("timezone") || "Asia/Shanghai"),
+        };
+        scheduleResult.className = "empty";
+        scheduleResult.textContent = "Creating schedule...";
+        try {
+          const response = await fetch("/ops/schedules", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const json = await response.json();
+          if (!response.ok) throw new Error(json.message || json.error || "create failed");
+          scheduleResult.className = "empty ok";
+          scheduleResult.textContent = "schedule " + json.id + " created · next run " + json.nextRunAt;
+          setTimeout(() => window.location.reload(), 800);
+        } catch (error) {
+          scheduleResult.className = "empty warn";
+          scheduleResult.textContent = error instanceof Error ? error.message : String(error);
+        }
+      }));
+    });
+
+    document.querySelectorAll("[data-schedule-action]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const action = button.getAttribute("data-schedule-action");
+        const id = button.getAttribute("data-schedule-id");
+        if (!id || !action) return;
+        if (action === "delete" && !confirm("Delete schedule " + id + "? Existing runs are kept.")) return;
+        withButtonLock(button, "Working…", async () => {
+          if (!scheduleResult) return;
+          scheduleResult.className = "empty";
+          scheduleResult.textContent = action + " " + id + "...";
+          try {
+            let response;
+            if (action === "pause") {
+              response = await fetch("/ops/schedules/" + encodeURIComponent(id), {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ status: "paused" }),
+              });
+            } else if (action === "resume") {
+              response = await fetch("/ops/schedules/" + encodeURIComponent(id), {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ status: "active" }),
+              });
+            } else if (action === "run-now") {
+              response = await fetch("/ops/schedules/" + encodeURIComponent(id) + "/run-now", { method: "POST" });
+            } else if (action === "delete") {
+              response = await fetch("/ops/schedules/" + encodeURIComponent(id), { method: "DELETE" });
+            } else {
+              return;
+            }
+            const json = await response.json();
+            if (!response.ok) throw new Error(json.message || json.error || "request failed");
+            scheduleResult.className = "empty ok";
+            scheduleResult.textContent = action + " " + id + " ok";
+            setTimeout(() => window.location.reload(), 600);
+          } catch (error) {
+            scheduleResult.className = "empty warn";
+            scheduleResult.textContent = error instanceof Error ? error.message : String(error);
+          }
+        });
+      });
+    });
+
     function escapeHtml(value) {
       return String(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
     }
   `;
+}
+
+function renderSchedules(overview: OpsOverview): string {
+  const activeTopics = overview.topics.filter((topic) => topic.status === "active");
+  const collectableSet = new Set(["steam", "youtube", "reddit"]);
+  const collectableProviders = overview.providers.filter((provider) => collectableSet.has(provider.id));
+  const schedules = overview.schedules;
+  return `<div class="ops-actions">
+    ${schedules.length === 0 ? `<div class="empty">No schedules yet. Use the form below to create one.</div>` : `<table>
+      <thead><tr><th>Schedule</th><th>Action</th><th>Topic / Providers</th><th>Cron</th><th>Next Run</th><th>Last Run</th><th>Status</th><th>Controls</th></tr></thead>
+      <tbody>${schedules.map((s) => `<tr>
+        <td><b>${h(s.id)}</b><div class="muted">created ${h(s.createdAt)}</div></td>
+        <td>${tag(s.action)}${s.dryRun ? tag("dry-run") : ""}</td>
+        <td><div class="mono">${h(s.topicId)}</div>${s.projectId ? tag(s.projectId) : ""}<div class="muted">${s.providers.map(h).join(", ")}</div>${s.query ? `<div class="muted">q: ${h(s.query)}</div>` : ""}</td>
+        <td class="mono">${h(s.cron)}<div class="muted">${h(s.timezone)}</div></td>
+        <td class="mono">${h(s.nextRunAt)}</td>
+        <td>${s.lastRunAt ? `<div class="mono">${h(s.lastRunAt)}</div>${s.lastRunStatus ? tag(s.lastRunStatus) : ""}${s.lastRunId ? `<div class="mono"><a href="/ops/runs/${h(s.lastRunId)}/view">${h(s.lastRunId)}</a></div>` : ""}` : `<span class="muted">never</span>`}</td>
+        <td>${tag(s.status)}</td>
+        <td><div class="hero-actions inline">
+          ${s.status === "active"
+            ? `<button type="button" data-schedule-id="${h(s.id)}" data-schedule-action="pause" class="secondary">Pause</button>`
+            : `<button type="button" data-schedule-id="${h(s.id)}" data-schedule-action="resume">Resume</button>`}
+          <button type="button" data-schedule-id="${h(s.id)}" data-schedule-action="run-now" class="secondary">Run Now</button>
+          <button type="button" data-schedule-id="${h(s.id)}" data-schedule-action="delete" class="secondary">Delete</button>
+        </div></td>
+      </tr>`).join("")}</tbody>
+    </table>`}
+    <details class="schedule-form" style="margin-top:18px">
+      <summary>+ New Schedule</summary>
+      <form id="ops-schedule-form" style="margin-top:12px; display:grid; gap:12px;">
+        <div class="form-row">
+          <label>Topic
+            <select name="topicId">
+              ${activeTopics.map((topic) => `<option value="${h(topic.id)}" data-sources='${h(JSON.stringify(topic.dataSources))}' data-project="${h(topic.projectId)}" data-query="${h(topic.name)}">${h(topic.name)} / ${h(topic.id)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Action
+            <select name="action">
+              <option value="collect-and-normalize-topic" selected>collect-and-normalize</option>
+              <option value="collect-topic">collect</option>
+              <option value="normalize-topic">normalize</option>
+            </select>
+          </label>
+        </div>
+        <div class="provider-checks">
+          ${collectableProviders.map((provider) => {
+            const missing = provider.envState === "missing";
+            const disabled = missing ? "disabled" : "";
+            const initialChecked = !missing && (activeTopics[0]?.dataSources.includes(provider.id) ?? false);
+            return `<label class="check ${missing ? "disabled" : ""}">
+              <input type="checkbox" name="schedProviders" value="${h(provider.id)}" ${initialChecked ? "checked" : ""} ${disabled} />
+              <span>${h(provider.id)}</span>
+              ${missing ? `<small>missing env</small>` : ""}
+            </label>`;
+          }).join("")}
+        </div>
+        <div class="form-row">
+          <label>Frequency
+            <select name="frequency">
+              <option value="daily" selected>Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="hourly">Hourly</option>
+              <option value="every_n_hours">Every N hours</option>
+            </select>
+          </label>
+          <label>Time (HH:MM)
+            <input type="time" name="time" value="09:07" />
+          </label>
+          <label data-freq-show="weekly" style="display:none">Weekday
+            <select name="weekday">
+              <option value="0">Sun</option>
+              <option value="1" selected>Mon</option>
+              <option value="2">Tue</option>
+              <option value="3">Wed</option>
+              <option value="4">Thu</option>
+              <option value="5">Fri</option>
+              <option value="6">Sat</option>
+            </select>
+          </label>
+          <label data-freq-show="every_n_hours" style="display:none">Every N hours
+            <input type="number" name="everyNHours" value="6" min="1" max="24" />
+          </label>
+          <label>Timezone
+            <input name="timezone" value="Asia/Shanghai" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Query (optional)
+            <input name="schedQuery" placeholder="defaults to topic name" />
+          </label>
+          <label>Limit
+            <input type="number" name="schedLimit" min="1" max="25" value="10" />
+            <small class="muted">max 25 per run</small>
+          </label>
+        </div>
+        <label class="check"><input type="checkbox" name="schedDryRun" /> <span>dry-run</span></label>
+        <div class="hero-actions inline">
+          <button type="button" data-schedule-create>Create Schedule</button>
+        </div>
+      </form>
+    </details>
+    <div id="ops-schedule-result" class="empty" style="margin-top:12px">Schedules go through the same Ops Action flow; runs still land in the review queue.</div>
+  </div>`;
+}
+
+export function renderRunDetailPage(run: Record<string, unknown>): string {
+  const stringField = (key: string): string => {
+    const value = run[key];
+    return typeof value === "string" ? value : "";
+  };
+  const numberField = (key: string): number => {
+    const value = run[key];
+    return typeof value === "number" ? value : 0;
+  };
+  const arrayField = (key: string): string[] => {
+    const value = run[key];
+    return Array.isArray(value) ? value.map(String) : [];
+  };
+  const commandResults = Array.isArray(run.commandResults) ? run.commandResults as Array<Record<string, unknown>> : [];
+  const runId = stringField("runId");
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Run ${h(runId)} — Scout Ops</title>
+  <style>${styles()}</style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Scout Ops Run</p>
+        <h1>${h(runId)}</h1>
+        <p class="lede">${h(stringField("action"))} · ${tag(stringField("status"))} · topic ${h(stringField("topicId"))}</p>
+      </div>
+      <div class="hero-actions">
+        <a class="pill" href="/ops">← Back to Ops</a>
+        <a class="pill" href="/ops/runs/${encodeURIComponent(runId)}/logs">Logs JSON</a>
+        <a class="pill" href="/ops/runs/${encodeURIComponent(runId)}">Raw JSON</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Summary</h2></div>
+      <table class="kv">
+        ${kv("action", stringField("action"))}
+        ${kv("status", stringField("status"))}
+        ${kv("topicId", stringField("topicId"))}
+        ${kv("projectId", stringField("projectId"))}
+        ${kv("providers", arrayField("providers").join(", "))}
+        ${kv("dryRun", String(run.dryRun ?? false))}
+        ${kv("startedAt", stringField("startedAt"))}
+        ${kv("endedAt", stringField("endedAt"))}
+        ${kv("rawRecordCount", String(numberField("rawRecordCount")))}
+        ${kv("normalizedEvidenceCount", String(numberField("normalizedEvidenceCount")))}
+        ${kv("commandCount", String(numberField("commandCount")))}
+        ${kv("successfulCommandCount", String(numberField("successfulCommandCount")))}
+        ${kv("failedCommandCount", String(numberField("failedCommandCount")))}
+        ${kv("runDir", stringField("runDir"))}
+      </table>
+    </section>
+
+    ${stringField("errorText") ? `<section class="panel">
+      <div class="panel-head"><h2>Error</h2></div>
+      <div class="empty warn">${h(stringField("errorText"))}</div>
+    </section>` : ""}
+
+    <section class="panel">
+      <div class="panel-head"><h2>Commands</h2><span>${commandResults.length} steps</span></div>
+      ${commandResults.length === 0 ? `<div class="empty">No command results recorded.</div>` : `<table>
+        <thead><tr><th>Label</th><th>Exit</th><th>TimedOut</th><th>Stdout (parsed)</th><th>Stderr</th></tr></thead>
+        <tbody>${commandResults.map((cmd) => `<tr>
+          <td><b>${h(String(cmd.label || ""))}</b><div class="mono">${h(String(cmd.command || "").slice(0, 200))}</div></td>
+          <td>${tag(String(cmd.exitCode ?? ""))}</td>
+          <td>${tag(String(cmd.timedOut ?? false))}</td>
+          <td><pre class="mono">${h(cmd.parsed ? JSON.stringify(cmd.parsed, null, 2).slice(0, 800) : String(cmd.stdout || "").slice(0, 500))}</pre></td>
+          <td><pre class="mono">${h(String(cmd.stderr || "").slice(0, 500))}</pre></td>
+        </tr>`).join("")}</tbody>
+      </table>`}
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
+export function renderReviewPreviewPage(preview: { item: OpsReviewItem; normalizedSample: Array<Record<string, unknown>>; handoff: Record<string, unknown> | null }): string {
+  const { item, normalizedSample, handoff } = preview;
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Review ${h(item.id)} — Scout Ops</title>
+  <style>${styles()}</style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Review Preview</p>
+        <h1>${h(item.id)}</h1>
+        <p class="lede">${tag(item.status)} · topic ${h(item.topicId)} · ${h(item.providers.join(", "))} · ${item.normalizedEvidenceCount} evidence rows</p>
+      </div>
+      <div class="hero-actions">
+        <a class="pill" href="/ops">← Back to Ops</a>
+        <a class="pill" href="/ops/runs/${encodeURIComponent(item.runId)}/view">Open Run</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Metadata</h2></div>
+      <table class="kv">
+        ${kv("id", item.id)}
+        ${kv("status", item.status)}
+        ${kv("runId", item.runId)}
+        ${kv("topicId", item.topicId)}
+        ${kv("projectId", item.projectId)}
+        ${kv("vertical", item.vertical)}
+        ${kv("providers", item.providers.join(", "))}
+        ${kv("dryRun", String(item.dryRun))}
+        ${kv("createdAt", item.createdAt)}
+        ${kv("updatedAt", item.updatedAt)}
+        ${kv("rawRecordCount", String(item.rawRecordCount))}
+        ${kv("normalizedEvidenceCount", String(item.normalizedEvidenceCount))}
+        ${kv("normalizedPath", item.normalizedPath)}
+        ${kv("handoffPath", item.handoffPath)}
+        ${kv("reportPath", item.reportPath)}
+        ${item.reviewer ? kv("reviewer", item.reviewer) : ""}
+        ${item.decisionNote ? kv("decisionNote", item.decisionNote) : ""}
+      </table>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Normalized Sample</h2><span>${normalizedSample.length} of first 10 rows</span></div>
+      ${normalizedSample.length === 0 ? `<div class="empty warn">No normalized records readable. Check normalizedPath.</div>` : `<table>
+        <thead><tr><th>Source</th><th>SourceItemId</th><th>Title</th><th>Snippet</th><th>URL</th></tr></thead>
+        <tbody>${normalizedSample.map((row) => `<tr>
+          <td>${tag(String(row.source || row.platform || "?"))}</td>
+          <td class="mono">${h(String(row.sourceItemId || row.id || ""))}</td>
+          <td>${h(String(row.title || row.headline || "").slice(0, 200))}</td>
+          <td class="muted">${h(String(row.snippet || row.summary || row.text || "").slice(0, 300))}</td>
+          <td class="mono">${h(String(row.sourceUrl || row.url || "").slice(0, 120))}</td>
+        </tr>`).join("")}</tbody>
+      </table>`}
+    </section>
+
+    ${handoff ? `<section class="panel">
+      <div class="panel-head"><h2>Handoff</h2><span>${h(String(handoff.schema || "no schema"))}</span></div>
+      <pre class="mono">${h(JSON.stringify(handoff, null, 2).slice(0, 2000))}</pre>
+    </section>` : `<section class="panel">
+      <div class="panel-head"><h2>Handoff</h2></div>
+      <div class="empty">No handoff file at ${h(item.handoffPath || "n/a")}</div>
+    </section>`}
+  </main>
+</body>
+</html>`;
 }
 
 function styles(): string {

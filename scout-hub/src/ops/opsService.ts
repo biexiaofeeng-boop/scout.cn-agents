@@ -2,15 +2,18 @@ import path from "node:path";
 import { ScoutPipeline } from "../pipeline.js";
 import { loadOpsTopics, providersWithEnvState } from "./opsRegistry.js";
 import { OpsReviewService } from "./opsReviewService.js";
+import { OpsScheduleService } from "./opsScheduleService.js";
 import { listRecentOpsRuns, scanTopicArtifacts } from "./runtimeScanner.js";
 import type { OpsOverview } from "./types.js";
 import { projectRuntimeRoot } from "./projectRuntime.js";
 
 export class OpsService {
   private readonly reviewService: OpsReviewService;
+  private readonly scheduleService: OpsScheduleService;
 
   constructor(private readonly pipeline: ScoutPipeline) {
     this.reviewService = new OpsReviewService(pipeline.settings.runtimeRoot);
+    this.scheduleService = new OpsScheduleService(pipeline.settings.runtimeRoot);
   }
 
   async buildOverview(): Promise<OpsOverview> {
@@ -29,12 +32,14 @@ export class OpsService {
       this.reviewService.list(20),
       ...projectIds.map((projectId) => new OpsReviewService(projectRuntimeRoot(runtimeRoot, projectId)).list(20)),
     ])).flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20);
+    const schedules = await this.scheduleService.list(100);
 
     return {
       generatedAt: new Date().toISOString(),
       projectRoot: this.pipeline.settings.projectRoot,
       runtimeRoot,
       topicConfigPath,
+      showPipelineViews: this.pipeline.settings.opsShowPipelineViews,
       hubHealth,
       alerts,
       providers,
@@ -42,6 +47,7 @@ export class OpsService {
       recentRuns,
       recentOpsRuns,
       reviewQueue,
+      schedules,
       summary: {
         topicCount: topicRows.length,
         activeTopicCount: topicRows.filter((topic) => topic.status === "active").length,
@@ -52,6 +58,7 @@ export class OpsService {
         rawRecordCount: topicRows.reduce((sum, topic) => sum + topic.artifacts.rawRecordCount, 0),
         normalizedEvidenceCount: topicRows.reduce((sum, topic) => sum + topic.artifacts.normalizedRecordCount, 0),
         pendingReviewCount: reviewQueue.filter((item) => item.status === "pending").length,
+        activeScheduleCount: schedules.filter((schedule) => schedule.status === "active").length,
       },
     };
   }

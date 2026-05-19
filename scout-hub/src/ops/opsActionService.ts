@@ -177,7 +177,7 @@ export class OpsActionService {
     const runRoots = await this.runRoots();
     const retentionDays = this.pipeline.settings.opsRunRetentionDays;
     const retentionMax = this.pipeline.settings.opsRunRetentionMax;
-    let entries: Array<{ runId: string; runDir: string; startedAt: string; mtimeMs: number }> = [];
+    let entries: Array<{ runId: string; runDir: string; startedAt: string; status: string; mtimeMs: number }> = [];
     for (const root of runRoots) {
       const runsDir = path.join(root, "runs");
       try {
@@ -192,6 +192,7 @@ export class OpsActionService {
               runId: entry.name,
               runDir,
               startedAt: stringValue(summary?.startedAt),
+              status: stringValue(summary?.status),
               mtimeMs: stat.mtimeMs,
             };
           }));
@@ -206,6 +207,8 @@ export class OpsActionService {
     const sorted = entries.sort((a, b) => b.mtimeMs - a.mtimeMs);
     const keepByMax = new Set(sorted.slice(0, Math.max(1, retentionMax)).map((entry) => entry.runId));
     const toDelete = sorted.filter((entry) => {
+      // preserve in-progress runs even when they cross retention thresholds
+      if (entry.status === "running") return false;
       const olderThanCutoff = retentionDays > 0 && entry.mtimeMs < cutoffMs;
       const overMax = retentionMax > 0 && !keepByMax.has(entry.runId);
       return olderThanCutoff || overMax;

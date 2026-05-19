@@ -9,6 +9,8 @@ export type Settings = {
   mediaCrawlerRoot: string;
   wechatRoot: string;
   wechatEnableDb: boolean;
+  pipelineTickEnabled: boolean;
+  opsShowPipelineViews: boolean;
   batchSize: number;
   alertDlqThreshold: number;
   schedulerIntervalSec: number;
@@ -54,6 +56,8 @@ export function loadSettings(cwd: string = process.cwd()): Settings {
     mediaCrawlerRoot,
     wechatRoot,
     wechatEnableDb: toBool(process.env.SCOUT_WECHAT_ENABLE_DB, true),
+    pipelineTickEnabled: toBool(process.env.SCOUT_PIPELINE_TICK_ENABLED, false),
+    opsShowPipelineViews: toBool(process.env.SCOUT_OPS_SHOW_PIPELINE_VIEWS, false),
     batchSize: toInt(process.env.SCOUT_BATCH_SIZE, 500),
     alertDlqThreshold: toInt(process.env.SCOUT_ALERT_DLQ_THRESHOLD, 10),
     schedulerIntervalSec: toInt(process.env.SCOUT_SCHEDULER_INTERVAL_SEC, 300),

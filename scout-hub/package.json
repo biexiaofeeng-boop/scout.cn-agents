@@ -12,6 +12,7 @@
     "api": "tsx src/cli.ts api --host 127.0.0.1 --port 18080"
   },
   "dependencies": {
+    "croner": "^9.0.0",
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
     "mysql2": "^3.11.3",

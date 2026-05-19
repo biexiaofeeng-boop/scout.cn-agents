@@ -68,6 +68,48 @@ export class OpsReviewService {
     return updated;
   }
 
+  async getPreview(id: string): Promise<{ item: OpsReviewItem; normalizedSample: Array<Record<string, unknown>>; handoff: Record<string, unknown> | null } | undefined> {
+    const safeId = sanitizeReviewId(id);
+    if (!safeId) return undefined;
+    const item = await readJson<OpsReviewItem>(this.itemPath(safeId));
+    if (!item) return undefined;
+
+    const normalizedSample: Array<Record<string, unknown>> = [];
+    if (item.normalizedPath) {
+      try {
+        const raw = await fs.readFile(item.normalizedPath, "utf-8");
+        const lines = raw.split("\n").filter((line) => line.trim()).slice(0, 10);
+        for (const line of lines) {
+          try {
+            normalizedSample.push(JSON.parse(line) as Record<string, unknown>);
+          } catch {
+            // skip unparseable lines
+          }
+        }
+      } catch {
+        // missing or unreadable
+      }
+    }
+
+    let handoff: Record<string, unknown> | null = null;
+    if (item.handoffPath) {
+      try {
+        const raw = await fs.readFile(item.handoffPath, "utf-8");
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        if (Array.isArray(parsed.items) && parsed.items.length > 5) {
+          const originalLength = parsed.items.length;
+          parsed.items = parsed.items.slice(0, 5);
+          parsed["_note"] = `items truncated to 5 of original ${originalLength}`;
+        }
+        handoff = parsed;
+      } catch {
+        handoff = null;
+      }
+    }
+
+    return { item, normalizedSample, handoff };
+  }
+
   private reviewDir(): string {
     return path.join(this.runtimeRoot, "review-queue");
   }
