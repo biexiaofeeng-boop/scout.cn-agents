@@ -29,6 +29,7 @@ export type OpsTopic = {
   dataSources: string[];
   owner: string;
   seedKeywordIds: string[];
+  seedQueryVariants?: string[];
 };
 
 export type OpsActionName = "collect-topic" | "normalize-topic" | "collect-and-normalize-topic";

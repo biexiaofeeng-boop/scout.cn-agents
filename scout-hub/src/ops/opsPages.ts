@@ -173,7 +173,8 @@ function renderOpsActions(overview: OpsOverview): string {
       const collectableSources = topic.dataSources.filter((d) => collectable.has(d));
       const label = topic.projectId ? `${topic.name} · ${topic.projectId}` : topic.name;
       const searchKey = `${topic.id} ${topic.name} ${topic.description || ""}`.toLowerCase();
-      return `<option value="${h(topic.id)}" data-query="${h(topic.name)}" data-project="${h(topic.projectId)}" data-vertical="${h(topic.vertical || "")}" data-projectid="${h(topic.projectId || "__none__")}" data-search="${h(searchKey)}" data-sources='${h(JSON.stringify(topic.dataSources))}' data-collectable='${h(JSON.stringify(collectableSources))}'>${h(label)}</option>`;
+      const variants = topic.seedQueryVariants || [];
+      return `<option value="${h(topic.id)}" data-query="${h(topic.name)}" data-project="${h(topic.projectId)}" data-vertical="${h(topic.vertical || "")}" data-projectid="${h(topic.projectId || "__none__")}" data-search="${h(searchKey)}" data-sources='${h(JSON.stringify(topic.dataSources))}' data-collectable='${h(JSON.stringify(collectableSources))}' data-variants='${h(JSON.stringify(variants))}'>${h(label)}</option>`;
     }).join("") + `</optgroup>`;
   }).join("");
   return `<div class="ops-actions">
@@ -267,7 +268,8 @@ function renderOpsActions(overview: OpsOverview): string {
             </label>
             <label>Keywords
               <input name="query" value="${h(initialTopic?.name || "")}" placeholder="defaults to topic name" />
-              <small class="muted">Search string sent to each channel. Defaults to topic name — override for a one-off variant.</small>
+              <small class="muted">Search string sent to each channel. Defaults to topic name.</small>
+              <div class="seed-variants" data-seed-variants></div>
             </label>
             <label>Per-run limit
               <input name="limit" type="number" min="1" max="25" value="10" />
@@ -1148,14 +1150,15 @@ function clientScript(): string {
           const option = topicSelect?.selectedOptions[0];
           let sources = [];
           let collectableSources = [];
+          let variants = [];
           try { sources = JSON.parse(option?.dataset?.sources || "[]"); } catch (_) {}
           try { collectableSources = JSON.parse(option?.dataset?.collectable || "[]"); } catch (_) {}
+          try { variants = JSON.parse(option?.dataset?.variants || "[]"); } catch (_) {}
           const sourcesSet = new Set(sources);
           form.querySelectorAll("label[data-provider-row]").forEach((row) => {
             const pid = row.getAttribute("data-provider-row");
             const checkbox = row.querySelector("input[type=checkbox]");
             const inSources = sourcesSet.has(pid);
-            // missing-env still wins over inclusion
             const missingEnv = row.classList.contains("disabled") && checkbox?.disabled && row.querySelector("small")?.textContent === "missing env";
             row.classList.toggle("disabled", !inSources || missingEnv);
             if (checkbox) {
@@ -1163,13 +1166,32 @@ function clientScript(): string {
               checkbox.checked = inSources && !missingEnv;
             }
           });
-          // Toggle channel-specific advanced fields based on what's checked
           form.querySelectorAll("[data-channel-field]").forEach((field) => {
             const pid = field.getAttribute("data-channel-field");
             const checkbox = form.querySelector("input[name=providers][value='" + pid + "']");
             field.style.display = (checkbox && !checkbox.disabled && checkbox.checked) ? "" : "none";
           });
-          // Warn + disable Run buttons when no collectable provider
+          // Render seed-derived suggestion chips
+          const variantsHost = form.querySelector("[data-seed-variants]");
+          const queryInput = form.querySelector("input[name=query]");
+          if (variantsHost) {
+            if (variants.length === 0) {
+              variantsHost.innerHTML = "";
+            } else {
+              const current = (queryInput?.value || "").trim();
+              variantsHost.innerHTML = '<span class="seed-hint">suggested:</span>' +
+                variants.map((v) => '<button type="button" class="chip' + (v === current ? " active" : "") + '" data-variant>' + escapeHtml(v) + '</button>').join("");
+              variantsHost.querySelectorAll("[data-variant]").forEach((chip) => {
+                chip.addEventListener("click", () => {
+                  if (queryInput) {
+                    queryInput.value = chip.textContent || "";
+                    queryInput.dispatchEvent(new Event("input", { bubbles: true }));
+                  }
+                  variantsHost.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c === chip));
+                });
+              });
+            }
+          }
           const hasCollectable = collectableSources.length > 0;
           if (warningEl) {
             warningEl.style.display = hasCollectable ? "none" : "block";
@@ -2053,6 +2075,11 @@ function styles(): string {
     .sub-tabs .sub-tab { background:transparent; border:1px solid transparent; border-bottom:2px solid transparent; padding:6px 12px; cursor:pointer; font:inherit; font-size:13px; color:var(--muted); border-radius:6px 6px 0 0; }
     .sub-tabs .sub-tab.active { border-bottom-color:var(--accent); color:var(--ink); font-weight:600; }
     .sub-tabs .badge { display:inline-block; padding:1px 6px; margin-left:4px; border-radius:8px; background:rgba(0,0,0,.08); font-size:11px; }
+    .seed-variants { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .seed-variants .chip { display:inline-block; padding:3px 10px; border-radius:14px; border:1px solid var(--line); background:#fff; color:var(--ink); font-size:12px; cursor:pointer; font-family:var(--mono); }
+    .seed-variants .chip:hover { background:rgba(194,98,53,.08); border-color:var(--accent); }
+    .seed-variants .chip.active { background:var(--accent); color:#fffaf0; border-color:var(--accent); }
+    .seed-variants .seed-hint { font-size:11px; color:var(--muted); margin-right:6px; align-self:center; }
     .dashboard-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .needs-attention, .activity-timeline { margin:0; padding-left:18px; line-height:1.7; }
     .needs-attention li, .activity-timeline li { margin:6px 0; }

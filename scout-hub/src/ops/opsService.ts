@@ -3,6 +3,7 @@ import { ScoutPipeline } from "../pipeline.js";
 import { loadOpsTopics, providersWithEnvState } from "./opsRegistry.js";
 import { OpsReviewService } from "./opsReviewService.js";
 import { OpsScheduleService } from "./opsScheduleService.js";
+import { loadSeeds } from "./seedRegistry.js";
 import { listRecentOpsRuns, scanTopicArtifacts } from "./runtimeScanner.js";
 import type { OpsOverview } from "./types.js";
 import { projectRuntimeRoot } from "./projectRuntime.js";
@@ -18,8 +19,22 @@ export class OpsService {
 
   async buildOverview(): Promise<OpsOverview> {
     const topicConfigPath = path.join(this.pipeline.settings.projectRoot, "scout-media-agents", "config", "topics", "scout-topics.json");
+    const seedConfigPath = path.join(this.pipeline.settings.projectRoot, "scout-media-agents", "config", "trend-seeds.csv");
     const runtimeRoot = this.pipeline.settings.runtimeRoot;
-    const topics = await loadOpsTopics(topicConfigPath);
+    const [rawTopics, seeds] = await Promise.all([
+      loadOpsTopics(topicConfigPath),
+      loadSeeds(seedConfigPath),
+    ]);
+    const topics = rawTopics.map((topic) => {
+      const variants = new Set<string>();
+      for (const id of topic.seedKeywordIds) {
+        const seed = seeds[id];
+        if (!seed) continue;
+        if (seed.keyword) variants.add(seed.keyword);
+        for (const v of seed.queryVariants) variants.add(v);
+      }
+      return { ...topic, seedQueryVariants: [...variants] };
+    });
     const projectIds = [...new Set(topics.map((topic) => topic.projectId).filter(Boolean))];
     const topicArtifacts = await Promise.all(topics.map((topic) => scanTopicArtifacts(runtimeRoot, topic.vertical, topic.id, topic.projectId)));
     const topicRows = topics.map((topic, index) => ({ ...topic, artifacts: topicArtifacts[index] }));
