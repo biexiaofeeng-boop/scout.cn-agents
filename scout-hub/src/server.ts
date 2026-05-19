@@ -101,10 +101,28 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
 
   app.post("/ops/providers/:id/test", async (req, reply) => {
     const id = (req.params as { id: string }).id;
-    const probes: Record<string, { url: string; requiredEnv?: string }> = {
-      steam: { url: "https://store.steampowered.com/api/storesearch/?term=test&l=en&cc=US" },
-      reddit: { url: "https://www.reddit.com/search.json?q=test&limit=1" },
-      youtube: { url: "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&type=video&q=test", requiredEnv: "YOUTUBE_API_KEY" },
+    const probes: Record<string, { url: string; requiredEnv?: string; description: string }> = {
+      steam: {
+        url: "https://store.steampowered.com/api/storesearch/?term=test&l=en&cc=US",
+        description: "Steam store search",
+      },
+      reddit: {
+        url: "https://www.reddit.com/search.json?q=test&limit=1",
+        description: "Reddit public JSON",
+      },
+      youtube: {
+        url: "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&type=video&q=test",
+        requiredEnv: "YOUTUBE_API_KEY",
+        description: "YouTube Data API",
+      },
+      mediacrawler: {
+        url: `${pipeline.settings.mediaCrawlerApiUrl.replace(/\/$/, "")}/api/health`,
+        description: "MediaCrawler FastAPI service",
+      },
+      "wechat-spider": {
+        url: "http://127.0.0.1:8080/",
+        description: "WeChat spider docker service",
+      },
     };
     const probe = probes[id];
     if (!probe) {
@@ -132,17 +150,20 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
           reason: response.status === 429 ? "rate_limit" : response.status === 401 || response.status === 403 ? "auth" : "upstream",
           httpStatus: response.status,
           elapsedMs,
+          target: url,
         };
       }
-      return { ok: true, httpStatus: response.status, elapsedMs };
+      return { ok: true, httpStatus: response.status, elapsedMs, target: probe.description };
     } catch (err) {
       const elapsedMs = Date.now() - startedAt;
       const message = err instanceof Error ? err.message : String(err);
+      const isConnRefused = /ECONNREFUSED|connect/i.test(message);
       return {
         ok: false,
-        reason: message.includes("abort") ? "timeout" : "network",
+        reason: message.includes("abort") ? "timeout" : isConnRefused ? "service_down" : "network",
         elapsedMs,
         message,
+        target: probe.description,
       };
     }
   });
