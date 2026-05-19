@@ -99,6 +99,54 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
     return item;
   });
 
+  app.post("/ops/providers/:id/test", async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    const probes: Record<string, { url: string; requiredEnv?: string }> = {
+      steam: { url: "https://store.steampowered.com/api/storesearch/?term=test&l=en&cc=US" },
+      reddit: { url: "https://www.reddit.com/search.json?q=test&limit=1" },
+      youtube: { url: "https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&type=video&q=test", requiredEnv: "YOUTUBE_API_KEY" },
+    };
+    const probe = probes[id];
+    if (!probe) {
+      reply.status(400);
+      return { error: "unsupported_provider", supported: Object.keys(probes) };
+    }
+    if (probe.requiredEnv && !process.env[probe.requiredEnv]) {
+      reply.status(412);
+      return { ok: false, reason: "missing_env", env: probe.requiredEnv };
+    }
+    const url = probe.requiredEnv ? `${probe.url}&key=${encodeURIComponent(process.env[probe.requiredEnv] as string)}` : probe.url;
+    const startedAt = Date.now();
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: { "User-Agent": "ScoutOps/0.1 test-probe" },
+      });
+      clearTimeout(timer);
+      const elapsedMs = Date.now() - startedAt;
+      if (!response.ok) {
+        return {
+          ok: false,
+          reason: response.status === 429 ? "rate_limit" : response.status === 401 || response.status === 403 ? "auth" : "upstream",
+          httpStatus: response.status,
+          elapsedMs,
+        };
+      }
+      return { ok: true, httpStatus: response.status, elapsedMs };
+    } catch (err) {
+      const elapsedMs = Date.now() - startedAt;
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        reason: message.includes("abort") ? "timeout" : "network",
+        elapsedMs,
+        message,
+      };
+    }
+  });
+
   app.get("/ops/schedules", async () => ({ items: await opsScheduleService.list(200) }));
 
   app.get("/ops/schedules/:id", async (req, reply) => {

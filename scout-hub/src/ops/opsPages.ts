@@ -131,16 +131,21 @@ function renderAlerts(overview: OpsOverview): string {
 }
 
 function renderProviders(overview: OpsOverview): string {
+  const testable = new Set(["steam", "reddit", "youtube"]);
   return `<table>
-    <thead><tr><th>Provider</th><th>Status</th><th>Env</th><th>Verticals</th><th>Notes</th></tr></thead>
+    <thead><tr><th>Provider</th><th>Status</th><th>Purpose</th><th>Verticals</th><th>Test</th></tr></thead>
     <tbody>
-      ${overview.providers.map((provider) => `<tr>
-        <td><b>${h(provider.label)}</b><div class="mono">${h(provider.id)} / ${h(provider.kind)}</div></td>
-        <td>${tag(provider.status)}</td>
-        <td>${tag(provider.envState)}${provider.envRequired.length ? `<div class="mono">${provider.envRequired.map(h).join(", ")}</div>` : ""}</td>
-        <td>${provider.verticals.map(tag).join("")}</td>
+      ${overview.providers.map((provider) => {
+        const ready = provider.envState !== "missing" && provider.status !== "planned";
+        const canTest = testable.has(provider.id);
+        return `<tr>
+        <td><b>${h(provider.label)}</b><div class="mono">${h(provider.id)}</div></td>
+        <td>${ready ? `<span class="icon ok">ready</span>` : `<span class="icon warn">${h(provider.envState === "missing" ? "not ready · missing env" : provider.status)}</span>`}</td>
         <td>${h(provider.notes)}</td>
-      </tr>`).join("")}
+        <td>${provider.verticals.map(tag).join("")}</td>
+        <td>${canTest ? `<button type="button" data-provider-test="${h(provider.id)}" class="secondary">Test</button><span class="muted provider-test-result" data-provider-test-result="${h(provider.id)}"></span>` : `<span class="muted">—</span>`}</td>
+      </tr>`;
+      }).join("")}
     </tbody>
   </table>`;
 }
@@ -286,7 +291,27 @@ function renderReviewQueue(overview: OpsOverview): string {
 
 function renderTopics(overview: OpsOverview): string {
   if (overview.topics.length === 0) return `<div class="empty warn">No topics loaded. Check topic config path: ${h(overview.topicConfigPath)}</div>`;
-  return `<table>
+  const verticals = [...new Set(overview.topics.map((t) => t.vertical).filter(Boolean))].sort();
+  const projects = [...new Set(overview.topics.map((t) => t.projectId).filter(Boolean))].sort();
+  const statuses = [...new Set(overview.topics.map((t) => t.status).filter(Boolean))].sort();
+  const filterBar = `<div class="hero-actions inline" style="margin-bottom:14px">
+    <select data-topics-filter="vertical" class="runs-filter">
+      <option value="">all verticals</option>
+      ${verticals.map((v) => `<option value="${h(v)}">${h(v)}</option>`).join("")}
+    </select>
+    <select data-topics-filter="projectId" class="runs-filter">
+      <option value="">all projects</option>
+      ${projects.map((p) => `<option value="${h(p)}">${h(p)}</option>`).join("")}
+      <option value="__none__">(no project)</option>
+    </select>
+    <select data-topics-filter="status" class="runs-filter">
+      ${statuses.map((s) => `<option value="${h(s)}"${s === "active" ? " selected" : ""}>${h(s)}</option>`).join("")}
+      <option value="">all status</option>
+    </select>
+    <input type="search" data-topics-filter="search" class="runs-filter" placeholder="search name or id" style="min-width:200px" />
+    <span class="muted" data-topics-count style="align-self:center">— of ${overview.topics.length}</span>
+  </div>`;
+  return `${filterBar}<table>
     <thead><tr><th>Topic</th><th>Last Run</th><th>Pending</th><th>Next Schedule</th><th>Channels</th></tr></thead>
     <tbody>
       ${overview.topics.map((topic) => {
@@ -302,10 +327,12 @@ function renderTopics(overview: OpsOverview): string {
         });
         const okCount = channelHealth.filter((c) => c.ok).length;
         const channelSummary = channelHealth.map((c) => `<span class="icon ${c.ok ? "ok" : "warn"}" title="${h(c.reason || "ready")}">${c.ok ? "✓" : "✗"} ${h(c.id)}</span>`).join("");
-        return `<tr class="clickable" data-topic-drawer="${h(topic.id)}">
+        const projectKey = topic.projectId || "__none__";
+        const searchHaystack = `${topic.id} ${topic.name} ${topic.description}`.toLowerCase();
+        return `<tr class="clickable" data-topic-drawer="${h(topic.id)}" data-topic-vertical="${h(topic.vertical || "")}" data-topic-projectid="${h(projectKey)}" data-topic-status="${h(topic.status || "")}" data-topic-search="${h(searchHaystack)}">
           <td>
             <b>${h(topic.name)}</b>
-            <div class="muted">${tag(topic.status)}${tag(topic.priority)}<span class="mono">${h(topic.id)}</span></div>
+            <div class="muted">${tag(topic.status)}${tag(topic.priority)}${topic.projectId ? tag(topic.projectId) : ""}<span class="mono">${h(topic.id)}</span></div>
           </td>
           <td>${lastRun ? `${tag(lastRun.status)}<div class="muted" title="${h(lastRun.endedAt || lastRun.startedAt)}">${h(relativeTime(lastRun.endedAt || lastRun.startedAt))}</div>` : `<span class="muted">never</span>`}</td>
           <td>${pendingReviews.length > 0 ? `<span class="icon warn">${pendingReviews.length} review</span>` : `<span class="muted">—</span>`}</td>
@@ -649,6 +676,72 @@ function clientScript(): string {
       } catch (error) {
         drawerBody.innerHTML = '<div class="empty warn">' + escapeHtml(error instanceof Error ? error.message : String(error)) + '</div>';
       }
+    }
+
+    function openRunNowDrawer(payload) {
+      if (!drawer || !drawerBody || !drawerActions || !drawerTitle) return;
+      const providers = (payload.providers || []);
+      drawerTitle.textContent = "Run Now — " + (payload.name || payload.topicId);
+      drawerBody.innerHTML =
+        '<form id="run-now-form" style="display:grid;gap:12px">' +
+          '<label>Topic<input value="' + escapeHtml(payload.name + " / " + payload.topicId) + '" disabled /></label>' +
+          '<div>' +
+            '<label class="muted" style="display:block;margin-bottom:6px">Channels (uncheck to skip)</label>' +
+            '<div class="provider-checks">' +
+              providers.map((p) => '<label class="check"><input type="checkbox" name="rnProvider" value="' + escapeHtml(p) + '" checked /> <span>' + escapeHtml(p) + '</span></label>').join("") +
+            '</div>' +
+            (providers.length === 0 ? '<div class="empty warn">No ready channels for this topic. Configure env first.</div>' : "") +
+          '</div>' +
+          '<label>Query (defaults to topic name)<input name="rnQuery" placeholder="' + escapeHtml(payload.name || "") + '" /></label>' +
+          '<label>Limit<input name="rnLimit" type="number" min="1" max="25" value="10" /><small class="muted">max 25 per run</small></label>' +
+          '<label class="check"><input type="checkbox" name="rnDryRun" /> <span>dry-run (no real fetch)</span></label>' +
+        '</form>' +
+        '<div id="run-now-result" class="empty" style="margin-top:12px">Submits a one-shot collect-and-normalize run.</div>';
+      drawerActions.innerHTML =
+        '<button type="button" data-run-now-submit ' + (providers.length === 0 ? "disabled" : "") + '>Submit Run</button>' +
+        '<button type="button" data-drawer-close class="pill secondary">Cancel</button>';
+      drawerActions.querySelector("[data-run-now-submit]")?.addEventListener("click", function (e) {
+        withButtonLock(e.currentTarget, "Submitting…", async () => {
+          const form = document.getElementById("run-now-form");
+          const resultEl = document.getElementById("run-now-result");
+          if (!form || !resultEl) return;
+          const data = new FormData(form);
+          const selectedProviders = data.getAll("rnProvider").map(String);
+          if (selectedProviders.length === 0) {
+            resultEl.className = "empty warn";
+            resultEl.textContent = "Select at least one channel.";
+            return;
+          }
+          const requestPayload = {
+            topicId: payload.topicId,
+            projectId: payload.projectId || undefined,
+            providers: selectedProviders,
+            query: String(data.get("rnQuery") || "").trim() || undefined,
+            limit: Number(data.get("rnLimit") || 10),
+            dryRun: data.get("rnDryRun") === "on",
+          };
+          resultEl.className = "empty";
+          resultEl.textContent = "Running collect-and-normalize…";
+          try {
+            const response = await fetch("/ops/runs/collect-and-normalize-topic", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(requestPayload),
+            });
+            const json = await response.json();
+            if (!response.ok) throw new Error(json.message || json.error || "run failed");
+            resultEl.className = "empty ok";
+            resultEl.innerHTML = "<b>" + escapeHtml(json.status) + "</b> " + escapeHtml(json.runId) +
+              " · raw=" + escapeHtml(String(json.rawRecordCount || 0)) +
+              " · evidence=" + escapeHtml(String(json.normalizedEvidenceCount || 0));
+            setTimeout(() => { closeDrawer(); refreshCurrentTab(); }, 1200);
+          } catch (error) {
+            resultEl.className = "empty warn";
+            resultEl.textContent = error instanceof Error ? error.message : String(error);
+          }
+        });
+      });
+      openDrawer();
     }
 
     function classifyStderr(text) {
@@ -1158,6 +1251,77 @@ function clientScript(): string {
         select.addEventListener("change", applyRunsFilters);
       });
 
+      // Topics filter bar
+      const topicsFilterEls = document.querySelectorAll("[data-topics-filter]");
+      const topicsCountEl = document.querySelector("[data-topics-count]");
+      function applyTopicsFilters() {
+        const filters = {};
+        let searchTerm = "";
+        topicsFilterEls.forEach((el) => {
+          const key = el.getAttribute("data-topics-filter");
+          if (key === "search") searchTerm = (el.value || "").toLowerCase().trim();
+          else if (el.value) filters[key] = el.value;
+        });
+        let visibleCount = 0;
+        document.querySelectorAll("tr[data-topic-drawer]").forEach((row) => {
+          let visible = true;
+          for (const key in filters) {
+            if (row.getAttribute("data-topic-" + key.toLowerCase()) !== filters[key]) {
+              visible = false;
+              break;
+            }
+          }
+          if (visible && searchTerm) {
+            const hay = row.getAttribute("data-topic-search") || "";
+            if (!hay.includes(searchTerm)) visible = false;
+          }
+          row.style.display = visible ? "" : "none";
+          if (visible) visibleCount += 1;
+        });
+        if (topicsCountEl) {
+          const total = document.querySelectorAll("tr[data-topic-drawer]").length;
+          topicsCountEl.textContent = visibleCount + " of " + total;
+        }
+      }
+      topicsFilterEls.forEach((el) => {
+        const evt = el.tagName.toLowerCase() === "input" ? "input" : "change";
+        el.addEventListener(evt, applyTopicsFilters);
+      });
+      // Apply default filter (status=active by default in select)
+      if (topicsFilterEls.length > 0) applyTopicsFilters();
+
+      document.querySelectorAll("[data-topic-runnow]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const raw = btn.getAttribute("data-topic-runnow") || "{}";
+          try {
+            const payload = JSON.parse(raw);
+            openRunNowDrawer(payload);
+          } catch (_) {}
+        });
+      });
+
+      document.querySelectorAll("[data-provider-test]").forEach((button) => {
+        button.addEventListener("click", () => withButtonLock(button, "Testing…", async () => {
+          const id = button.getAttribute("data-provider-test");
+          const resultEl = document.querySelector("[data-provider-test-result='" + id + "']");
+          if (resultEl) resultEl.textContent = " testing...";
+          try {
+            const response = await fetch("/ops/providers/" + encodeURIComponent(id) + "/test", { method: "POST" });
+            const json = await response.json();
+            if (!resultEl) return;
+            if (json.ok) {
+              resultEl.innerHTML = ' <span class="icon ok">ok ' + (json.elapsedMs || 0) + 'ms</span>';
+            } else {
+              const reason = json.reason || "failed";
+              const extra = json.httpStatus ? " " + json.httpStatus : (json.env ? " " + json.env : "");
+              resultEl.innerHTML = ' <span class="icon warn">' + escapeHtml(reason + extra) + '</span>';
+            }
+          } catch (error) {
+            if (resultEl) resultEl.innerHTML = ' <span class="icon warn">' + escapeHtml(error instanceof Error ? error.message : String(error)) + '</span>';
+          }
+        }));
+      });
+
       document.querySelectorAll("a[href*='/preview']").forEach((link) => {
         const href = link.getAttribute("href") || "";
         const match = href.match(/\\/ops\\/review-queue\\/([^\\/]+)\\/preview/);
@@ -1358,6 +1522,12 @@ export function renderTopicDetailPage(topic: OpsOverview["topics"][number], over
         </div>
       </div>
       <div class="hero-actions">
+        <button type="button" data-topic-runnow='${h(JSON.stringify({
+          topicId: topic.id,
+          projectId: topic.projectId,
+          name: topic.name,
+          providers: channels.filter((c) => c.enabled && c.envState !== "missing").map((c) => c.id),
+        }))}'>Run Now</button>
         <a class="pill" href="/ops/topics">← Topics</a>
         <a class="pill" href="/ops/collection">Open Collection</a>
       </div>
