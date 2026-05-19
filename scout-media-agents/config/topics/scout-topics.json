@@ -361,5 +361,55 @@
     "seedKeywordIds": [
       "GPGG-004"
     ]
+  },
+  {
+    "id": "fin-us-ai-equity",
+    "name": "US AI equity narratives",
+    "description": "Track US retail-investor narratives around AI-related public equities (NVDA / PLTR / AI-thesis names).",
+    "status": "active",
+    "priority": "high",
+    "vertical": "finance",
+    "market": "US",
+    "language": "en-US",
+    "intent": "trend_watch",
+    "refreshCadence": "daily",
+    "platforms": [
+      "reddit",
+      "youtube"
+    ],
+    "dataSources": [
+      "reddit",
+      "youtube"
+    ],
+    "owner": "finance-intel",
+    "seedKeywordIds": [
+      "FIN-001"
+    ],
+    "projectId": "finance"
+  },
+  {
+    "id": "fin-cn-consumer-macro",
+    "name": "中国消费宏观信号",
+    "description": "监测中国消费品类（白酒 / 新能源车 / 餐饮）在 CN 平台上的叙事走向，作为消费板块基本面侧写补充。",
+    "status": "active",
+    "priority": "medium",
+    "vertical": "finance",
+    "market": "CN",
+    "language": "zh-CN",
+    "intent": "trend_watch",
+    "refreshCadence": "weekly",
+    "platforms": [
+      "weibo",
+      "xiaohongshu",
+      "bilibili"
+    ],
+    "dataSources": [
+      "mediacrawler"
+    ],
+    "owner": "finance-intel",
+    "seedKeywordIds": [
+      "FIN-002"
+    ],
+    "projectId": "finance"
   }
 ]
