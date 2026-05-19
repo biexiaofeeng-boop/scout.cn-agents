@@ -119,7 +119,7 @@ export class OpsReviewService {
   }
 }
 
-function sanitizeReviewId(id: string): string {
+export function sanitizeReviewId(id: string): string {
   return /^review_scout_run_[a-zA-Z0-9_.:-]+$/.test(id) ? id : "";
 }
 

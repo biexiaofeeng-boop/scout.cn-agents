@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "check": "tsc --noEmit",
+    "test": "vitest run",
     "build": "tsc -p tsconfig.json",
     "pipeline:once": "tsx src/cli.ts pipeline --once",
     "scheduler": "tsx src/cli.ts scheduler --interval 300",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@types/node": "^24.12.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.6"
   }
 }
