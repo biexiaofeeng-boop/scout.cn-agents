@@ -45,7 +45,7 @@ export const OPS_PROVIDERS: Array<Omit<OpsProvider, "envState">> = [
     status: "ready",
     verticals: ["game", "ai", "consumer", "finance"],
     envRequired: ["WECHAT_MYSQL_PASSWD"],
-    notes: "WeChat Official Account content. Runs externally via the docker stack; data lands in mariadb.",
+    notes: "WeChat Official Account content. Runs as a mitmproxy in the docker stack; liveness via `docker compose ps`, data lands in mariadb. No HTTP health probe.",
   },
 ];
 

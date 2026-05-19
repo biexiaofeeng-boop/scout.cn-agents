@@ -46,6 +46,7 @@ export type Settings = {
   monitorHost: string;
   monitorPort: number;
   mediaCrawlerApiUrl: string;
+  wechatSpiderUrl: string;
   wechatMysqlHost: string;
   wechatMysqlPort: number;
   wechatMysqlDb: string;
@@ -94,6 +95,7 @@ export function loadSettings(cwd: string = process.cwd()): Settings {
     monitorHost: process.env.SCOUT_MONITOR_HOST || "127.0.0.1",
     monitorPort: toInt(process.env.SCOUT_MONITOR_PORT, 18080),
     mediaCrawlerApiUrl: process.env.MEDIACRAWLER_API_URL || "http://127.0.0.1:18081",
+    wechatSpiderUrl: process.env.WECHAT_SPIDER_URL || "http://127.0.0.1:8080",
     wechatMysqlHost: process.env.WECHAT_MYSQL_HOST || "127.0.0.1",
     wechatMysqlPort: toInt(process.env.WECHAT_MYSQL_PORT, 3306),
     wechatMysqlDb: process.env.WECHAT_MYSQL_DB || "test",

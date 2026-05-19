@@ -185,7 +185,8 @@ scout-hub 启动时按以下顺序加载 env，**前面的优先**：
 | `SCOUT_OPS_RUN_RETENTION_DAYS` | `30` | run 目录保留天数 |
 | `SCOUT_OPS_RUN_RETENTION_MAX` | `300` | run 目录保留条数 |
 | `YOUTUBE_API_KEY` | — | YouTube Data API 必需 |
-| `MEDIACRAWLER_API_URL` | `http://127.0.0.1:18081` | mediacrawler 健康检查目标 |
+| `MEDIACRAWLER_API_URL` | `http://127.0.0.1:18081` | mediacrawler 健康检查目标。docker 容器内应改为 `http://host.docker.internal:18081`（mediacrawler 跑在宿主机时） |
+| `WECHAT_SPIDER_URL` | `http://127.0.0.1:8080` | 仅文档用。wechat-spider 是 mitmproxy 代理，无 HTTP 健康检查；docker 内可设 `http://wechat-spider:8080` |
 | `WECHAT_MYSQL_PASSWD` | — | docker 内 mariadb 密码 |
 
 ### 3.3 关键目录
@@ -223,6 +224,22 @@ Run 按钮禁用 + 红字提示 "runs as an external service"。
 `scout-deploy/env/scout-hub.env` 应该有 `YOUTUBE_API_KEY=...`。
 如果是本地 tsx 启动，检查启动目录是不是 `scout-hub/`（env 文件
 查找路径相对于 cwd）。
+
+### 4.2.1 Provider Test 按钮：mediacrawler 显示 network / service_down
+
+scout-hub-api 在 docker 容器内 fetch `127.0.0.1` 指向容器自己，
+不是宿主机。如果 mediacrawler 跑在宿主机，必须在 `scout-deploy/env/scout-hub.env`
+里加：
+
+```
+MEDIACRAWLER_API_URL=http://host.docker.internal:18081
+```
+
+然后 `docker compose up -d scout-hub-api` 重启容器加载新 env。
+本地直跑 tsx 时则默认 `127.0.0.1:18081` 即可。
+
+wechat-spider 没有 Test 按钮，因为它是 mitmproxy 代理不响应 HTTP。
+状态用 `docker compose ps scout-stack-wechat-spider-1` 看。
 
 ### 4.3 Schedule 设了但不跑
 

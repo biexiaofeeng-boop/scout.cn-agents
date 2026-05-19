@@ -136,7 +136,7 @@ function renderAlerts(overview: OpsOverview): string {
 }
 
 function renderProviders(overview: OpsOverview): string {
-  const testable = new Set(["steam", "reddit", "youtube", "mediacrawler", "wechat-spider"]);
+  const testable = new Set(["steam", "reddit", "youtube", "mediacrawler"]);
   return `<table>
     <thead><tr><th>Provider</th><th>Status</th><th>Purpose</th><th>Verticals</th><th>Test</th></tr></thead>
     <tbody>

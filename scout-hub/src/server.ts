@@ -119,10 +119,9 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
         url: `${pipeline.settings.mediaCrawlerApiUrl.replace(/\/$/, "")}/api/health`,
         description: "MediaCrawler FastAPI service",
       },
-      "wechat-spider": {
-        url: "http://127.0.0.1:8080/",
-        description: "WeChat spider docker service",
-      },
+      // wechat-spider runs as mitmproxy (not a regular HTTP server), so HTTP
+      // probes are meaningless. Its liveness is the docker stack's job; the
+      // Provider page surfaces this via notes instead of a Test button.
     };
     const probe = probes[id];
     if (!probe) {
@@ -144,7 +143,14 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
       });
       clearTimeout(timer);
       const elapsedMs = Date.now() - startedAt;
+      // For external "is-the-service-alive" probes, treat any HTTP response
+      // (even 4xx/5xx) as a positive reachability signal — the probe is not a
+      // contract test, just a liveness check.
+      const livenessOnly = id === "mediacrawler";
       if (!response.ok) {
+        if (livenessOnly && response.status >= 400) {
+          return { ok: true, httpStatus: response.status, elapsedMs, target: probe.description, note: "reachable, non-200 response" };
+        }
         return {
           ok: false,
           reason: response.status === 429 ? "rate_limit" : response.status === 401 || response.status === 403 ? "auth" : "upstream",

@@ -26,6 +26,7 @@ function makeMockPipeline(tempDir: string, overrides: Partial<Settings> = {}): S
     monitorHost: "127.0.0.1",
     monitorPort: 18080,
     mediaCrawlerApiUrl: "http://127.0.0.1:18081",
+    wechatSpiderUrl: "http://127.0.0.1:8080",
     wechatMysqlHost: "127.0.0.1",
     wechatMysqlPort: 3306,
     wechatMysqlDb: "test",
