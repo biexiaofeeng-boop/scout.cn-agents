@@ -176,10 +176,23 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
     return preview;
   });
 
+  const VALID_OPS_TABS = ["dashboard", "topics", "collection", "review", "system"] as const;
+
   app.get("/ops", async (_req, reply) => {
     const overview = await opsService.buildOverview();
     reply.type("text/html; charset=utf-8");
-    return renderOpsPage(overview);
+    return renderOpsPage(overview, { initialTab: "dashboard" });
+  });
+
+  app.get("/ops/:tab", async (req, reply) => {
+    const tab = (req.params as { tab: string }).tab;
+    if (!(VALID_OPS_TABS as readonly string[]).includes(tab)) {
+      reply.status(404);
+      return { error: "unknown_tab", validTabs: VALID_OPS_TABS };
+    }
+    const overview = await opsService.buildOverview();
+    reply.type("text/html; charset=utf-8");
+    return renderOpsPage(overview, { initialTab: tab });
   });
 
   app.get("/alerts", async () => {

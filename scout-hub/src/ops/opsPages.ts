@@ -1,6 +1,7 @@
 import type { OpsArtifactState, OpsOverview, OpsReviewItem } from "./types.js";
 
-export function renderOpsPage(overview: OpsOverview): string {
+export function renderOpsPage(overview: OpsOverview, options: { initialTab?: string } = {}): string {
+  const initialTab = options.initialTab || "dashboard";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -22,20 +23,20 @@ export function renderOpsPage(overview: OpsOverview): string {
       </div>
     </section>
 
-    ${renderTabNav()}
+    ${renderTabNav(initialTab)}
 
-    <section class="tab-body" data-tab-body="dashboard">
+    <section class="tab-body${initialTab === "dashboard" ? "" : " hidden"}" data-tab-body="dashboard">
       ${renderDashboard(overview)}
     </section>
 
-    <section class="tab-body hidden" data-tab-body="topics">
+    <section class="tab-body${initialTab === "topics" ? "" : " hidden"}" data-tab-body="topics">
       <section class="panel">
         <div class="panel-head"><h2>Topics</h2><span>${overview.summary.activeTopicCount} active of ${overview.topics.length}</span></div>
         ${renderTopics(overview)}
       </section>
     </section>
 
-    <section class="tab-body hidden" data-tab-body="collection">
+    <section class="tab-body${initialTab === "collection" ? "" : " hidden"}" data-tab-body="collection">
       <section class="panel">
         <div class="panel-head"><h2>New Run</h2><span>SO2 guarded execution</span></div>
         ${renderOpsActions(overview)}
@@ -51,7 +52,7 @@ export function renderOpsPage(overview: OpsOverview): string {
       </section>
     </section>
 
-    <section class="tab-body hidden" data-tab-body="review">
+    <section class="tab-body${initialTab === "review" ? "" : " hidden"}" data-tab-body="review">
       <section class="panel">
         <div class="panel-head"><h2>Review Queue</h2><span>${overview.summary.pendingReviewCount} pending</span></div>
         ${renderReviewQueue(overview)}
@@ -63,7 +64,7 @@ export function renderOpsPage(overview: OpsOverview): string {
       </section>
     </section>
 
-    <section class="tab-body hidden" data-tab-body="system">
+    <section class="tab-body${initialTab === "system" ? "" : " hidden"}" data-tab-body="system">
       <section class="panel">
         <div class="panel-head"><h2>Providers</h2><span>Secrets are never rendered</span></div>
         ${renderProviders(overview)}
@@ -150,7 +151,7 @@ function renderOpsActions(overview: OpsOverview): string {
   const providers = overview.providers.filter((provider) => collectable.has(provider.id));
   const initialTopic = activeTopics[0];
   return `<div class="ops-actions">
-    <form id="ops-run-form">
+    <form id="ops-run-form" data-prev-query="${h(initialTopic?.name || "")}">
       <div class="form-row">
         <label>Mode
           <select name="mode">
@@ -428,33 +429,7 @@ function h(value: string): string {
 
 function clientScript(): string {
   return `
-    const tabButtons = document.querySelectorAll(".ops-tabs .tab");
-    const tabBodies = document.querySelectorAll(".tab-body");
-    function activateTab(target) {
-      if (!target) return;
-      tabButtons.forEach((t) => t.classList.toggle("active", t.getAttribute("data-tab") === target));
-      tabBodies.forEach((b) => b.classList.toggle("hidden", b.getAttribute("data-tab-body") !== target));
-    }
-    tabButtons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const target = btn.getAttribute("data-tab");
-        activateTab(target);
-        try { localStorage.setItem("opsActiveTab", target); } catch (_) {}
-      });
-    });
-    try {
-      const lastTab = localStorage.getItem("opsActiveTab");
-      if (lastTab && document.querySelector(".ops-tabs .tab[data-tab='" + lastTab + "']")) {
-        activateTab(lastTab);
-      }
-    } catch (_) {}
-
-    const form = document.getElementById("ops-run-form");
-    const resultBox = document.getElementById("ops-action-result");
-    const cleanupResult = document.getElementById("ops-cleanup-result") || resultBox;
-    const reviewResult = document.getElementById("ops-review-result") || resultBox;
-    const topicSelect = form?.querySelector("select[name=topicId]");
-    let previousTopicQuery = topicSelect?.selectedOptions[0]?.dataset?.query || "";
+    // === Top-level helpers (reused across all handlers) ===
 
     async function withButtonLock(button, label, fn) {
       if (button.disabled) return;
@@ -469,54 +444,9 @@ function clientScript(): string {
       }
     }
 
-    function updateProviderDefaults(option) {
-      if (!form || !option) return;
-      let sources = [];
-      try { sources = JSON.parse(option.dataset?.sources || "[]"); } catch (_) { sources = []; }
-      const set = new Set(sources);
-      form.querySelectorAll("input[name=providers]").forEach((checkbox) => {
-        if (checkbox.disabled) return;
-        checkbox.checked = set.has(checkbox.value);
-      });
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
     }
-
-    topicSelect?.addEventListener("change", () => {
-      const option = topicSelect.selectedOptions[0];
-      const queryInput = form?.querySelector("input[name=query]");
-      const nextTopicQuery = option?.dataset?.query || "";
-      if (queryInput) {
-        if (!queryInput.value || queryInput.value === previousTopicQuery) {
-          queryInput.value = nextTopicQuery;
-        }
-      }
-      previousTopicQuery = nextTopicQuery;
-      updateProviderDefaults(option);
-    });
-
-    const modeSelect = form?.querySelector("select[name=mode]");
-    function updateModeBlocks() {
-      if (!form) return;
-      const mode = modeSelect?.value || "oneshot";
-      form.querySelectorAll("[data-mode-block]").forEach((el) => {
-        el.style.display = (el.getAttribute("data-mode-block") === mode) ? "" : "none";
-      });
-      form.querySelectorAll("[data-run-mode]").forEach((btn) => {
-        btn.style.display = (btn.getAttribute("data-run-mode") === mode) ? "" : "none";
-      });
-    }
-    modeSelect?.addEventListener("change", updateModeBlocks);
-    updateModeBlocks();
-
-    const frequencySelect = form?.querySelector("select[name=frequency]");
-    function updateFrequencyFields() {
-      if (!form) return;
-      const value = frequencySelect?.value || "daily";
-      form.querySelectorAll("[data-freq-show]").forEach((label) => {
-        label.style.display = (label.getAttribute("data-freq-show") === value) ? "" : "none";
-      });
-    }
-    frequencySelect?.addEventListener("change", updateFrequencyFields);
-    updateFrequencyFields();
 
     function buildCron(formEl) {
       const freq = formEl.querySelector("[name=frequency]")?.value || "daily";
@@ -538,178 +468,93 @@ function clientScript(): string {
       return MM + " " + HH + " * * *";
     }
 
-    document.querySelectorAll("[data-run-mode]").forEach((button) => {
-      button.addEventListener("click", () => withButtonLock(button, "Submitting…", async () => {
-        if (!form || !resultBox) return;
-        const data = new FormData(form);
-        const mode = String(data.get("mode") || "oneshot");
-        const action = String(data.get("action") || "collect-and-normalize-topic");
-        const topicId = String(data.get("topicId") || "");
-        const topicOption = topicSelect?.selectedOptions[0];
-        const providers = data.getAll("providers").map(String);
-        const query = String(data.get("query") || "").trim();
-        const limit = Number(data.get("limit") || 10);
-        const dryRun = data.get("dryRun") === "on";
-        resultBox.className = "empty";
-        if (mode === "oneshot") {
-          resultBox.textContent = "Running " + action + " ...";
-          const payload = {
-            topicId,
-            query,
-            limit,
-            providers,
-            dryRun,
-            includeDryRun: data.get("includeDryRun") === "on",
-            appId: String(data.get("appId") || ""),
-            subreddit: String(data.get("subreddit") || ""),
-            gameIds: String(data.get("gameIds") || ""),
-          };
-          try {
-            const response = await fetch("/ops/runs/" + action, {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            const json = await response.json();
-            if (!response.ok) throw new Error(json.message || json.error || "request failed");
-            resultBox.className = "empty ok";
-            resultBox.innerHTML = "<b>" + escapeHtml(json.status) + "</b> " + escapeHtml(json.runId) +
-              " · raw=" + escapeHtml(String(json.rawRecordCount || 0)) +
-              " · evidence=" + escapeHtml(String(json.normalizedEvidenceCount || 0)) +
-              " · <a href=\\"/ops/runs/" + encodeURIComponent(json.runId) + "/view\\">open run detail</a>";
-          } catch (error) {
-            resultBox.className = "empty warn";
-            resultBox.textContent = error instanceof Error ? error.message : String(error);
-          }
-        } else {
-          resultBox.textContent = "Creating schedule...";
-          const payload = {
-            topicId,
-            projectId: String(topicOption?.dataset?.project || ""),
-            providers,
-            action,
-            query: query || undefined,
-            limit,
-            dryRun,
-            cron: buildCron(form),
-            timezone: String(data.get("timezone") || "Asia/Shanghai"),
-          };
-          try {
-            const response = await fetch("/ops/schedules", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            const json = await response.json();
-            if (!response.ok) throw new Error(json.message || json.error || "create failed");
-            resultBox.className = "empty ok";
-            resultBox.textContent = "schedule " + json.id + " created · next run " + json.nextRunAt;
-            setTimeout(() => window.location.reload(), 800);
-          } catch (error) {
-            resultBox.className = "empty warn";
-            resultBox.textContent = error instanceof Error ? error.message : String(error);
+    function updateProviderDefaults(option, formEl) {
+      if (!formEl || !option) return;
+      let sources = [];
+      try { sources = JSON.parse(option.dataset?.sources || "[]"); } catch (_) {}
+      const set = new Set(sources);
+      formEl.querySelectorAll("input[name=providers]").forEach((checkbox) => {
+        if (checkbox.disabled) return;
+        checkbox.checked = set.has(checkbox.value);
+      });
+    }
+
+    function applyRunsFilters() {
+      const filters = {};
+      document.querySelectorAll("[data-runs-filter]").forEach((s) => {
+        const key = s.getAttribute("data-runs-filter");
+        if (s.value) filters[key] = s.value;
+      });
+      document.querySelectorAll("tr[data-run-status]").forEach((row) => {
+        let visible = true;
+        for (const key in filters) {
+          if (row.getAttribute("data-run-" + key) !== filters[key]) {
+            visible = false;
+            break;
           }
         }
-      }));
-    });
+        row.style.display = visible ? "" : "none";
+      });
+    }
 
-    document.querySelectorAll("[data-retry-run]").forEach((button) => {
-      button.addEventListener("click", () => withButtonLock(button, "Retrying…", async () => {
-        const runId = button.getAttribute("data-retry-run");
-        if (!runId || !cleanupResult) return;
-        cleanupResult.className = "empty";
-        cleanupResult.textContent = "Retrying " + runId + " ...";
-        try {
-          const response = await fetch("/ops/runs/" + encodeURIComponent(runId) + "/retry", { method: "POST" });
-          const json = await response.json();
-          if (!response.ok) throw new Error(json.message || json.error || "retry failed");
-          cleanupResult.className = "empty ok";
-          cleanupResult.innerHTML = "retry created <b>" + escapeHtml(json.runId) + "</b> · status=" + escapeHtml(json.status);
-        } catch (error) {
-          cleanupResult.className = "empty warn";
-          cleanupResult.textContent = error instanceof Error ? error.message : String(error);
-        }
-      }));
-    });
+    // === URL routing + partial refresh ===
 
-    document.querySelectorAll("[data-cleanup-runs]").forEach((button) => {
-      button.addEventListener("click", () => {
-        if (!confirm("Cleanup will delete old run directories based on retention policy. Continue?")) return;
-        withButtonLock(button, "Cleaning…", async () => {
-          if (!cleanupResult) return;
-          const response = await fetch("/ops/runs/cleanup", { method: "POST" });
-          const json = await response.json();
-          cleanupResult.className = response.ok ? "empty ok" : "empty warn";
-          cleanupResult.textContent = response.ok
-            ? "cleanup deleted=" + json.deletedCount + ", kept=" + json.keptCount
-            : (json.message || json.error || "cleanup failed");
+    async function navigateTo(url, options) {
+      options = options || {};
+      try {
+        const response = await fetch(url, { headers: { "accept": "text/html" } });
+        if (!response.ok) throw new Error("nav " + url + " failed: " + response.status);
+        const html = await response.text();
+        const doc = new DOMParser().parseFromString(html, "text/html");
+
+        const match = url.match(/^\\/ops\\/([a-z-]+)/);
+        const targetTab = match ? match[1] : "dashboard";
+
+        document.querySelectorAll(".tab-body").forEach((existing) => {
+          const tabName = existing.getAttribute("data-tab-body");
+          const newBody = doc.querySelector(".tab-body[data-tab-body='" + tabName + "']");
+          if (newBody) {
+            existing.innerHTML = newBody.innerHTML;
+            existing.classList.toggle("hidden", tabName !== targetTab);
+          }
         });
+        document.querySelectorAll(".ops-tabs .tab").forEach((btn) => {
+          btn.classList.toggle("active", btn.getAttribute("data-tab") === targetTab);
+        });
+
+        if (!options.replace) {
+          history.pushState({}, "", url);
+        }
+
+        document.title = doc.title;
+        bindContentHandlers();
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("navigateTo failed, falling back to full reload:", error);
+        window.location.href = url;
+      }
+    }
+
+    function refreshCurrentTab() {
+      return navigateTo(window.location.pathname, { replace: true });
+    }
+
+    // Tab nav clicks: anchor + data-tab. Bound once since nav is outside the swap area.
+    document.querySelectorAll(".ops-tabs .tab").forEach((tabEl) => {
+      tabEl.addEventListener("click", (e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        const target = tabEl.getAttribute("data-tab");
+        if (!target) return;
+        e.preventDefault();
+        navigateTo("/ops/" + target);
       });
     });
 
-    document.querySelectorAll("[data-review]").forEach((button) => {
-      button.addEventListener("click", () => withButtonLock(button, "Saving…", async () => {
-        if (!reviewResult) return;
-        const id = button.getAttribute("data-review");
-        const status = button.getAttribute("data-status");
-        const response = await fetch("/ops/review-queue/" + encodeURIComponent(id) + "/decision", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ status, reviewer: "ops-ui" }),
-        });
-        const json = await response.json();
-        reviewResult.className = response.ok ? "empty ok" : "empty warn";
-        reviewResult.textContent = response.ok
-          ? "review " + json.id + " -> " + json.status
-          : (json.message || json.error || "review decision failed");
-      }));
+    window.addEventListener("popstate", () => {
+      navigateTo(window.location.pathname, { replace: true });
     });
 
-    const scheduleResult = document.getElementById("ops-schedule-result");
-
-    document.querySelectorAll("[data-schedule-action]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const action = button.getAttribute("data-schedule-action");
-        const id = button.getAttribute("data-schedule-id");
-        if (!id || !action) return;
-        if (action === "delete" && !confirm("Delete schedule " + id + "? Existing runs are kept.")) return;
-        withButtonLock(button, "Working…", async () => {
-          if (!scheduleResult) return;
-          scheduleResult.className = "empty";
-          scheduleResult.textContent = action + " " + id + "...";
-          try {
-            let response;
-            if (action === "pause") {
-              response = await fetch("/ops/schedules/" + encodeURIComponent(id), {
-                method: "PATCH",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ status: "paused" }),
-              });
-            } else if (action === "resume") {
-              response = await fetch("/ops/schedules/" + encodeURIComponent(id), {
-                method: "PATCH",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ status: "active" }),
-              });
-            } else if (action === "run-now") {
-              response = await fetch("/ops/schedules/" + encodeURIComponent(id) + "/run-now", { method: "POST" });
-            } else if (action === "delete") {
-              response = await fetch("/ops/schedules/" + encodeURIComponent(id), { method: "DELETE" });
-            } else {
-              return;
-            }
-            const json = await response.json();
-            if (!response.ok) throw new Error(json.message || json.error || "request failed");
-            scheduleResult.className = "empty ok";
-            scheduleResult.textContent = action + " " + id + " ok";
-            setTimeout(() => window.location.reload(), 600);
-          } catch (error) {
-            scheduleResult.className = "empty warn";
-            scheduleResult.textContent = error instanceof Error ? error.message : String(error);
-          }
-        });
-      });
-    });
+    // === Drawer (outside swap area, bind once) ===
 
     const drawer = document.getElementById("review-drawer");
     const drawerBody = document.getElementById("drawer-body");
@@ -740,28 +585,21 @@ function clientScript(): string {
       }
     });
 
-    document.querySelectorAll("a[href*='/preview']").forEach((link) => {
-      const href = link.getAttribute("href") || "";
-      const match = href.match(/\\/ops\\/review-queue\\/([^\\/]+)\\/preview/);
-      if (!match) return;
-      link.addEventListener("click", async (event) => {
-        event.preventDefault();
-        const id = match[1];
-        if (!drawer || !drawerBody || !drawerActions || !drawerTitle) return;
-        drawerTitle.textContent = "Preview " + id;
-        drawerBody.innerHTML = '<div class="empty">Loading preview…</div>';
-        drawerActions.innerHTML = '<button type="button" data-drawer-close class="pill secondary">Close</button>';
-        openDrawer();
-        try {
-          const response = await fetch("/ops/review-queue/" + encodeURIComponent(id) + "/preview.json");
-          const json = await response.json();
-          if (!response.ok) throw new Error(json.message || json.error || "preview failed");
-          renderDrawerPreview(json);
-        } catch (error) {
-          drawerBody.innerHTML = '<div class="empty warn">' + escapeHtml(error instanceof Error ? error.message : String(error)) + '</div>';
-        }
-      });
-    });
+    async function openPreviewDrawer(id) {
+      if (!drawer || !drawerBody || !drawerActions || !drawerTitle) return;
+      drawerTitle.textContent = "Preview " + id;
+      drawerBody.innerHTML = '<div class="empty">Loading preview…</div>';
+      drawerActions.innerHTML = '<button type="button" data-drawer-close class="pill secondary">Close</button>';
+      openDrawer();
+      try {
+        const response = await fetch("/ops/review-queue/" + encodeURIComponent(id) + "/preview.json");
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.message || json.error || "preview failed");
+        renderDrawerPreview(json);
+      } catch (error) {
+        drawerBody.innerHTML = '<div class="empty warn">' + escapeHtml(error instanceof Error ? error.message : String(error)) + '</div>';
+      }
+    }
 
     function renderDrawerPreview(data) {
       if (!drawerBody || !drawerActions) return;
@@ -816,6 +654,7 @@ function clientScript(): string {
             body: JSON.stringify({ status, reviewer: "ops-ui" }),
           });
           const json = await response.json();
+          const reviewResult = document.getElementById("ops-review-result");
           if (!response.ok) {
             if (reviewResult) {
               reviewResult.className = "empty warn";
@@ -828,46 +667,257 @@ function clientScript(): string {
             reviewResult.textContent = "review " + json.id + " -> " + json.status;
           }
           closeDrawer();
-          setTimeout(() => window.location.reload(), 500);
+          setTimeout(refreshCurrentTab, 400);
         }));
       });
     }
 
-    document.querySelectorAll("[data-topic-expand]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const topicId = btn.getAttribute("data-topic-expand");
-        const detail = document.querySelector("[data-topic-details='" + topicId + "']");
-        if (!detail) return;
-        detail.classList.toggle("hidden");
-        const isHidden = detail.classList.contains("hidden");
-        btn.textContent = btn.textContent.replace(/[▸▾]/, isHidden ? "▸" : "▾");
-      });
-    });
+    // === Content handlers (re-bound after each tab body swap) ===
 
-    document.querySelectorAll("[data-runs-filter]").forEach((select) => {
-      select.addEventListener("change", applyRunsFilters);
-    });
-    function applyRunsFilters() {
-      const filters = {};
-      document.querySelectorAll("[data-runs-filter]").forEach((s) => {
-        const key = s.getAttribute("data-runs-filter");
-        if (s.value) filters[key] = s.value;
-      });
-      document.querySelectorAll("tr[data-run-status]").forEach((row) => {
-        let visible = true;
-        for (const key in filters) {
-          if (row.getAttribute("data-run-" + key) !== filters[key]) {
-            visible = false;
-            break;
+    function bindContentHandlers() {
+      const resultBox = document.getElementById("ops-action-result");
+      const cleanupResult = document.getElementById("ops-cleanup-result") || resultBox;
+      const reviewResult = document.getElementById("ops-review-result") || resultBox;
+      const scheduleResult = document.getElementById("ops-schedule-result") || resultBox;
+
+      const form = document.getElementById("ops-run-form");
+      if (form) {
+        const modeSelect = form.querySelector("select[name=mode]");
+        const frequencySelect = form.querySelector("select[name=frequency]");
+        const topicSelect = form.querySelector("select[name=topicId]");
+
+        const updateModeBlocks = () => {
+          const mode = modeSelect?.value || "oneshot";
+          form.querySelectorAll("[data-mode-block]").forEach((el) => {
+            el.style.display = (el.getAttribute("data-mode-block") === mode) ? "" : "none";
+          });
+          form.querySelectorAll("[data-run-mode]").forEach((btn) => {
+            btn.style.display = (btn.getAttribute("data-run-mode") === mode) ? "" : "none";
+          });
+        };
+        const updateFrequencyFields = () => {
+          const value = frequencySelect?.value || "daily";
+          form.querySelectorAll("[data-freq-show]").forEach((label) => {
+            label.style.display = (label.getAttribute("data-freq-show") === value) ? "" : "none";
+          });
+        };
+
+        modeSelect?.addEventListener("change", updateModeBlocks);
+        frequencySelect?.addEventListener("change", updateFrequencyFields);
+        topicSelect?.addEventListener("change", () => {
+          const option = topicSelect.selectedOptions[0];
+          const queryInput = form.querySelector("input[name=query]");
+          const nextTopicQuery = option?.dataset?.query || "";
+          const previousTopicQuery = form.dataset.prevQuery || "";
+          if (queryInput && (!queryInput.value || queryInput.value === previousTopicQuery)) {
+            queryInput.value = nextTopicQuery;
           }
-        }
-        row.style.display = visible ? "" : "none";
+          form.dataset.prevQuery = nextTopicQuery;
+          updateProviderDefaults(option, form);
+        });
+
+        updateModeBlocks();
+        updateFrequencyFields();
+      }
+
+      document.querySelectorAll("[data-run-mode]").forEach((button) => {
+        button.addEventListener("click", () => withButtonLock(button, "Submitting…", async () => {
+          const formEl = document.getElementById("ops-run-form");
+          if (!formEl || !resultBox) return;
+          const data = new FormData(formEl);
+          const mode = String(data.get("mode") || "oneshot");
+          const action = String(data.get("action") || "collect-and-normalize-topic");
+          const topicId = String(data.get("topicId") || "");
+          const topicSelect = formEl.querySelector("select[name=topicId]");
+          const topicOption = topicSelect?.selectedOptions[0];
+          const providers = data.getAll("providers").map(String);
+          const query = String(data.get("query") || "").trim();
+          const limit = Number(data.get("limit") || 10);
+          const dryRun = data.get("dryRun") === "on";
+          resultBox.className = "empty";
+          if (mode === "oneshot") {
+            resultBox.textContent = "Running " + action + " ...";
+            const payload = {
+              topicId, query, limit, providers, dryRun,
+              includeDryRun: data.get("includeDryRun") === "on",
+              appId: String(data.get("appId") || ""),
+              subreddit: String(data.get("subreddit") || ""),
+              gameIds: String(data.get("gameIds") || ""),
+            };
+            try {
+              const response = await fetch("/ops/runs/" + action, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+              const json = await response.json();
+              if (!response.ok) throw new Error(json.message || json.error || "request failed");
+              resultBox.className = "empty ok";
+              resultBox.innerHTML = "<b>" + escapeHtml(json.status) + "</b> " + escapeHtml(json.runId) +
+                " · raw=" + escapeHtml(String(json.rawRecordCount || 0)) +
+                " · evidence=" + escapeHtml(String(json.normalizedEvidenceCount || 0)) +
+                " · <a href=\\"/ops/runs/" + encodeURIComponent(json.runId) + "/view\\">open run detail</a>";
+              setTimeout(refreshCurrentTab, 800);
+            } catch (error) {
+              resultBox.className = "empty warn";
+              resultBox.textContent = error instanceof Error ? error.message : String(error);
+            }
+          } else {
+            resultBox.textContent = "Creating schedule...";
+            const payload = {
+              topicId,
+              projectId: String(topicOption?.dataset?.project || ""),
+              providers, action,
+              query: query || undefined,
+              limit, dryRun,
+              cron: buildCron(formEl),
+              timezone: String(data.get("timezone") || "Asia/Shanghai"),
+            };
+            try {
+              const response = await fetch("/ops/schedules", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+              const json = await response.json();
+              if (!response.ok) throw new Error(json.message || json.error || "create failed");
+              resultBox.className = "empty ok";
+              resultBox.textContent = "schedule " + json.id + " created · next run " + json.nextRunAt;
+              setTimeout(refreshCurrentTab, 800);
+            } catch (error) {
+              resultBox.className = "empty warn";
+              resultBox.textContent = error instanceof Error ? error.message : String(error);
+            }
+          }
+        }));
+      });
+
+      document.querySelectorAll("[data-retry-run]").forEach((button) => {
+        button.addEventListener("click", () => withButtonLock(button, "Retrying…", async () => {
+          const runId = button.getAttribute("data-retry-run");
+          if (!runId || !cleanupResult) return;
+          cleanupResult.className = "empty";
+          cleanupResult.textContent = "Retrying " + runId + " ...";
+          try {
+            const response = await fetch("/ops/runs/" + encodeURIComponent(runId) + "/retry", { method: "POST" });
+            const json = await response.json();
+            if (!response.ok) throw new Error(json.message || json.error || "retry failed");
+            cleanupResult.className = "empty ok";
+            cleanupResult.innerHTML = "retry created <b>" + escapeHtml(json.runId) + "</b> · status=" + escapeHtml(json.status);
+            setTimeout(refreshCurrentTab, 600);
+          } catch (error) {
+            cleanupResult.className = "empty warn";
+            cleanupResult.textContent = error instanceof Error ? error.message : String(error);
+          }
+        }));
+      });
+
+      document.querySelectorAll("[data-cleanup-runs]").forEach((button) => {
+        button.addEventListener("click", () => {
+          if (!confirm("Cleanup will delete old run directories based on retention policy. Continue?")) return;
+          withButtonLock(button, "Cleaning…", async () => {
+            if (!cleanupResult) return;
+            const response = await fetch("/ops/runs/cleanup", { method: "POST" });
+            const json = await response.json();
+            cleanupResult.className = response.ok ? "empty ok" : "empty warn";
+            cleanupResult.textContent = response.ok
+              ? "cleanup deleted=" + json.deletedCount + ", kept=" + json.keptCount
+              : (json.message || json.error || "cleanup failed");
+            if (response.ok) setTimeout(refreshCurrentTab, 400);
+          });
+        });
+      });
+
+      document.querySelectorAll("[data-review]").forEach((button) => {
+        button.addEventListener("click", () => withButtonLock(button, "Saving…", async () => {
+          if (!reviewResult) return;
+          const id = button.getAttribute("data-review");
+          const status = button.getAttribute("data-status");
+          const response = await fetch("/ops/review-queue/" + encodeURIComponent(id) + "/decision", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ status, reviewer: "ops-ui" }),
+          });
+          const json = await response.json();
+          reviewResult.className = response.ok ? "empty ok" : "empty warn";
+          reviewResult.textContent = response.ok
+            ? "review " + json.id + " -> " + json.status
+            : (json.message || json.error || "review decision failed");
+          if (response.ok) setTimeout(refreshCurrentTab, 400);
+        }));
+      });
+
+      document.querySelectorAll("[data-schedule-action]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const action = button.getAttribute("data-schedule-action");
+          const id = button.getAttribute("data-schedule-id");
+          if (!id || !action) return;
+          if (action === "delete" && !confirm("Delete schedule " + id + "? Existing runs are kept.")) return;
+          withButtonLock(button, "Working…", async () => {
+            if (!scheduleResult) return;
+            scheduleResult.className = "empty";
+            scheduleResult.textContent = action + " " + id + "...";
+            try {
+              let response;
+              if (action === "pause") {
+                response = await fetch("/ops/schedules/" + encodeURIComponent(id), {
+                  method: "PATCH",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ status: "paused" }),
+                });
+              } else if (action === "resume") {
+                response = await fetch("/ops/schedules/" + encodeURIComponent(id), {
+                  method: "PATCH",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ status: "active" }),
+                });
+              } else if (action === "run-now") {
+                response = await fetch("/ops/schedules/" + encodeURIComponent(id) + "/run-now", { method: "POST" });
+              } else if (action === "delete") {
+                response = await fetch("/ops/schedules/" + encodeURIComponent(id), { method: "DELETE" });
+              } else {
+                return;
+              }
+              const json = await response.json();
+              if (!response.ok) throw new Error(json.message || json.error || "request failed");
+              scheduleResult.className = "empty ok";
+              scheduleResult.textContent = action + " " + id + " ok";
+              setTimeout(refreshCurrentTab, 400);
+            } catch (error) {
+              scheduleResult.className = "empty warn";
+              scheduleResult.textContent = error instanceof Error ? error.message : String(error);
+            }
+          });
+        });
+      });
+
+      document.querySelectorAll("[data-topic-expand]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const topicId = btn.getAttribute("data-topic-expand");
+          const detail = document.querySelector("[data-topic-details='" + topicId + "']");
+          if (!detail) return;
+          detail.classList.toggle("hidden");
+          const isHidden = detail.classList.contains("hidden");
+          btn.textContent = btn.textContent.replace(/[▸▾]/, isHidden ? "▸" : "▾");
+        });
+      });
+
+      document.querySelectorAll("[data-runs-filter]").forEach((select) => {
+        select.addEventListener("change", applyRunsFilters);
+      });
+
+      document.querySelectorAll("a[href*='/preview']").forEach((link) => {
+        const href = link.getAttribute("href") || "";
+        const match = href.match(/\\/ops\\/review-queue\\/([^\\/]+)\\/preview/);
+        if (!match) return;
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          openPreviewDrawer(match[1]);
+        });
       });
     }
 
-    function escapeHtml(value) {
-      return String(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
-    }
+    bindContentHandlers();
   `;
 }
 
@@ -897,13 +947,16 @@ function renderSchedules(overview: OpsOverview): string {
   </div>`;
 }
 
-function renderTabNav(): string {
+function renderTabNav(initialTab: string): string {
+  const tabs = [
+    { id: "dashboard", label: "Dashboard" },
+    { id: "topics", label: "Topics" },
+    { id: "collection", label: "Collection" },
+    { id: "review", label: "Review &amp; Handoff" },
+    { id: "system", label: "System" },
+  ];
   return `<nav class="ops-tabs">
-    <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
-    <button type="button" class="tab" data-tab="topics">Topics</button>
-    <button type="button" class="tab" data-tab="collection">Collection</button>
-    <button type="button" class="tab" data-tab="review">Review &amp; Handoff</button>
-    <button type="button" class="tab" data-tab="system">System</button>
+    ${tabs.map((t) => `<a class="tab${t.id === initialTab ? " active" : ""}" data-tab="${t.id}" href="/ops/${t.id}">${t.label}</a>`).join("")}
   </nav>`;
 }
 
@@ -1184,7 +1237,7 @@ function styles(): string {
     .notes { margin:0; padding-left:20px; color:var(--muted); line-height:1.7; }
     code { font-family:var(--mono); background:#fff; padding:2px 5px; border-radius:6px; }
     .ops-tabs { display:flex; gap:4px; margin:24px 0 16px; border-bottom:1px solid rgba(255,255,255,.18); }
-    .ops-tabs .tab { background:transparent; color:var(--paper); border:1px solid transparent; border-bottom:none; border-radius:14px 14px 0 0; padding:11px 18px; cursor:pointer; font:inherit; font-size:14px; letter-spacing:.02em; }
+    .ops-tabs .tab { background:transparent; color:var(--paper); border:1px solid transparent; border-bottom:none; border-radius:14px 14px 0 0; padding:11px 18px; cursor:pointer; font:inherit; font-size:14px; letter-spacing:.02em; text-decoration:none; display:inline-block; }
     .ops-tabs .tab:hover { background:rgba(255,255,255,.06); }
     .ops-tabs .tab.active { background:var(--paper); color:var(--ink); border-color:var(--line); font-weight:600; }
     .tab-body { display:block; }
