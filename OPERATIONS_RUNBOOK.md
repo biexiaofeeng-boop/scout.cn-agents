@@ -1,5 +1,21 @@
 # Scout Lab 正式运营启动手册
 
+## 0. 现状说明（2026-05 更新）
+
+本手册原本针对 `intel_hub`（Python）的运行链路。当前生产链路重心已迁移
+到 `scout-hub`（TypeScript）的 Ops Console + Schedules：
+
+- 游戏类素材采集走 Steam / YouTube / Reddit。运营员在 `http://127.0.0.1:18080/ops`
+  手动触发，或通过 Schedules 定时执行；产物全部进 review queue 等审阅。
+- `intel_hub`、`mediacrawler`、`wechat-spider` 暂时冻结，不再投入新功能。
+  `scout-hub-scheduler` 容器默认不调用 `pipeline.runOnce()`
+  （`SCOUT_PIPELINE_TICK_ENABLED=false`）。
+- scout-hub 的启动、配置、调度、测试细节见
+  `/Users/sourcefire/1data/scout-lab/scout-hub/README.md`。
+
+下面"intel_hub 启动"相关章节（第 1 节起）仅在确实需要重新启用旧链路时
+使用。新人上手优先看 scout-hub README。
+
 ## 1. 体系目标
 
 当前目录包含三个运行单元：
