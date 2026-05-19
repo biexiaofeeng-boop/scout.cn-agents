@@ -3,7 +3,7 @@ import { OpsActionService } from "./ops/opsActionService.js";
 import { OpsReviewService } from "./ops/opsReviewService.js";
 import { OpsScheduleService, type OpsScheduleCreateInput, type OpsScheduleUpdateInput } from "./ops/opsScheduleService.js";
 import { OpsService } from "./ops/opsService.js";
-import { renderOpsPage, renderRunDetailPage, renderReviewPreviewPage } from "./ops/opsPages.js";
+import { renderOpsPage, renderRunDetailPage, renderReviewPreviewPage, renderTopicDetailPage } from "./ops/opsPages.js";
 import type { OpsActionName } from "./ops/types.js";
 import { ScoutPipeline } from "./pipeline.js";
 
@@ -101,6 +101,15 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
 
   app.get("/ops/schedules", async () => ({ items: await opsScheduleService.list(200) }));
 
+  app.get("/ops/schedules/:id", async (req, reply) => {
+    const item = await opsScheduleService.get((req.params as { id: string }).id);
+    if (!item) {
+      reply.status(404);
+      return { error: "schedule_not_found" };
+    }
+    return item;
+  });
+
   app.post("/ops/schedules", async (req, reply) => {
     try {
       return await opsScheduleService.create((req.body || {}) as OpsScheduleCreateInput);
@@ -145,6 +154,19 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
       reply.status(400);
       return { error: "schedule_run_now_rejected", message: err instanceof Error ? err.message : String(err) };
     }
+  });
+
+  app.get("/ops/topics/:topicId", async (req, reply) => {
+    const topicId = (req.params as { topicId: string }).topicId;
+    const overview = await opsService.buildOverview();
+    const topic = overview.topics.find((t) => t.id === topicId);
+    if (!topic) {
+      reply.status(404);
+      reply.type("text/html; charset=utf-8");
+      return `<!doctype html><meta charset="utf-8"><title>Topic not found</title><body style="font-family:system-ui;padding:40px"><h1>Topic not found</h1><p>Topic id: <code>${topicId.replace(/[<>&"]/g, "")}</code></p><p><a href="/ops/topics">← Back to Topics</a></p></body>`;
+    }
+    reply.type("text/html; charset=utf-8");
+    return renderTopicDetailPage(topic, overview);
   });
 
   app.get("/ops/runs/:runId/view", async (req, reply) => {

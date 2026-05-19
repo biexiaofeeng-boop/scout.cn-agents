@@ -252,17 +252,17 @@ function renderReviewQueue(overview: OpsOverview): string {
   const pending = overview.reviewQueue.filter((item) => item.status === "pending");
   const decided = overview.reviewQueue.filter((item) => item.status !== "pending");
   const renderRow = (item: OpsReviewItem) => `<tr>
-      <td><b>${h(item.id)}</b><div class="mono">${h(item.runId)}</div><div class="muted">${h(item.createdAt)}</div></td>
+      <td><b>${h(shortenId(item.id))}</b><div class="muted" title="${h(item.id)}">${h(relativeTime(item.createdAt))}</div></td>
       <td>${tag(item.status)}${item.reviewer ? `<div class="muted">by ${h(item.reviewer)}</div>` : ""}</td>
       <td><div class="mono">${h(item.topicId)}</div>${item.projectId ? tag(item.projectId) : ""}<div>${item.providers.map(tag).join("")}</div></td>
       <td>${item.rawRecordCount} raw / ${item.normalizedEvidenceCount} ev${item.dryRun ? `<div>${tag("dry-run")}</div>` : ""}</td>
-      <td><div class="stack small">
-        <div><b>report</b><div class="mono">${h(item.reportPath)}</div></div>
-        <div><b>handoff</b><div class="mono">${h(item.handoffPath || "n/a")}</div></div>
-      </div></td>
+      <td>
+        <span class="icon ${item.reportPath ? "ok" : "off"}" title="report: ${h(item.reportPath || "missing")}">${item.reportPath ? "✓" : "✗"} rpt</span>
+        <span class="icon ${item.handoffPath ? "ok" : "off"}" title="handoff: ${h(item.handoffPath || "missing")}">${item.handoffPath ? "✓" : "✗"} hdf</span>
+      </td>
       <td>
         <div class="hero-actions inline">
-          <a href="/ops/review-queue/${h(item.id)}/preview" target="_blank" class="pill">Preview</a>
+          <a href="/ops/review-queue/${h(item.id)}/preview" class="pill">Preview</a>
           ${item.status === "pending" ? `<button type="button" data-review="${h(item.id)}" data-status="approved">Approve</button>
           <button type="button" data-review="${h(item.id)}" data-status="rejected" class="secondary">Reject</button>` : `<span class="muted">${h(item.decisionNote || "decided")}</span>`}
         </div>
@@ -287,32 +287,31 @@ function renderReviewQueue(overview: OpsOverview): string {
 function renderTopics(overview: OpsOverview): string {
   if (overview.topics.length === 0) return `<div class="empty warn">No topics loaded. Check topic config path: ${h(overview.topicConfigPath)}</div>`;
   return `<table>
-    <thead><tr><th>Topic</th><th>Scope</th><th>Sources</th><th>Runtime</th><th>Artifacts</th><th></th></tr></thead>
+    <thead><tr><th>Topic</th><th>Last Run</th><th>Pending</th><th>Next Schedule</th><th>Channels</th></tr></thead>
     <tbody>
       ${overview.topics.map((topic) => {
-        const recentRuns = overview.recentOpsRuns.filter((r) => r.topicId === topic.id).slice(0, 5);
-        return `<tr>
-        <td><b>${h(topic.name)}</b><div class="mono">${h(topic.id)}</div>${topic.projectId ? `<div>${tag(topic.projectId)}</div>` : ""}<div class="muted">${h(topic.description)}</div></td>
-        <td>${tag(topic.status)}${tag(topic.priority)}${tag(topic.intent)}<div class="mono">${h(topic.vertical)} / ${h(topic.market)} / ${h(topic.language)}</div><div class="muted">owner: ${h(topic.owner)} · cadence: ${h(topic.refreshCadence)}</div></td>
-        <td><div>${topic.dataSources.map(tag).join("")}</div><div class="muted">platforms: ${topic.platforms.map(h).join(", ")}</div><div class="muted">seeds: ${topic.seedKeywordIds.map(h).join(", ")}</div></td>
-        <td>${renderArtifactStats(topic.artifacts)}</td>
-        <td>${renderArtifactLinks(topic.artifacts)}</td>
-        <td><button type="button" class="secondary" data-topic-expand="${h(topic.id)}">Recent ${recentRuns.length} ▸</button></td>
-      </tr>
-      <tr class="topic-details hidden" data-topic-details="${h(topic.id)}">
-        <td colspan="6">
-          ${recentRuns.length === 0 ? `<div class="empty">No recent runs for this topic.</div>` : `<table>
-            <thead><tr><th>Run</th><th>Action</th><th>Status</th><th>Evidence</th><th>Ended</th></tr></thead>
-            <tbody>${recentRuns.map((r) => `<tr>
-              <td class="mono"><a href="/ops/runs/${h(r.runId)}/view">${h(r.runId)}</a></td>
-              <td>${tag(r.action)}</td>
-              <td>${tag(r.status)}</td>
-              <td>${r.rawRecordCount} raw / ${r.normalizedEvidenceCount} ev</td>
-              <td>${h(r.endedAt)}</td>
-            </tr>`).join("")}</tbody>
-          </table>`}
-        </td>
-      </tr>`;
+        const lastRun = overview.recentOpsRuns.find((r) => r.topicId === topic.id);
+        const activeSchedules = overview.schedules.filter((s) => s.topicId === topic.id && s.status === "active");
+        const nextSchedule = activeSchedules.sort((a, b) => a.nextRunAt.localeCompare(b.nextRunAt))[0];
+        const pendingReviews = overview.reviewQueue.filter((r) => r.topicId === topic.id && r.status === "pending");
+        const channelHealth = topic.dataSources.map((src) => {
+          const provider = overview.providers.find((p) => p.id === src);
+          if (!provider) return { id: src, ok: false, reason: "unknown" };
+          if (provider.envState === "missing") return { id: src, ok: false, reason: "missing-env" };
+          return { id: src, ok: true, reason: "" };
+        });
+        const okCount = channelHealth.filter((c) => c.ok).length;
+        const channelSummary = channelHealth.map((c) => `<span class="icon ${c.ok ? "ok" : "warn"}" title="${h(c.reason || "ready")}">${c.ok ? "✓" : "✗"} ${h(c.id)}</span>`).join("");
+        return `<tr class="clickable" data-topic-drawer="${h(topic.id)}">
+          <td>
+            <b>${h(topic.name)}</b>
+            <div class="muted">${tag(topic.status)}${tag(topic.priority)}<span class="mono">${h(topic.id)}</span></div>
+          </td>
+          <td>${lastRun ? `${tag(lastRun.status)}<div class="muted" title="${h(lastRun.endedAt || lastRun.startedAt)}">${h(relativeTime(lastRun.endedAt || lastRun.startedAt))}</div>` : `<span class="muted">never</span>`}</td>
+          <td>${pendingReviews.length > 0 ? `<span class="icon warn">${pendingReviews.length} review</span>` : `<span class="muted">—</span>`}</td>
+          <td>${nextSchedule ? `<div title="${h(nextSchedule.cron)}">${h(humanizeCron(nextSchedule.cron, nextSchedule.timezone))}</div><div class="muted" title="${h(nextSchedule.nextRunAt)}">next ${h(relativeTime(nextSchedule.nextRunAt))}</div>` : `<span class="muted">no schedule</span>`}</td>
+          <td><div>${channelSummary}</div><div class="muted">${okCount}/${channelHealth.length} ok</div></td>
+        </tr>`;
       }).join("")}
     </tbody>
   </table>`;
@@ -361,6 +360,7 @@ function renderOpsRuns(overview: OpsOverview): string {
   const filtersBar = `<div class="hero-actions inline">
       <select data-runs-filter="status" class="runs-filter">
         <option value="">all status</option>
+        <option value="running">running</option>
         <option value="success">success</option>
         <option value="failed">failed</option>
         <option value="partial_failed">partial</option>
@@ -389,18 +389,18 @@ function renderOpsRuns(overview: OpsOverview): string {
   return `<div class="stack">
     ${filtersBar}
     <table>
-    <thead><tr><th>Run</th><th>Action / Origin</th><th>Status</th><th>Topic</th><th>Evidence</th><th>Ended</th><th>Controls</th></tr></thead>
+    <thead><tr><th>When</th><th>Run</th><th>Action</th><th>Status</th><th>Topic</th><th>Counts</th></tr></thead>
     <tbody>${overview.recentOpsRuns.map((run) => {
       const origin = originMap.get(run.runId);
       const originLabel = origin ? "schedule" : "manual";
-      return `<tr data-run-status="${h(run.status)}" data-run-action="${h(run.action)}" data-run-origin="${originLabel}" data-run-topic="${h(run.topicId)}">
-      <td class="mono"><a href="/ops/runs/${h(run.runId)}/view">${h(run.runId)}</a></td>
-      <td>${tag(run.action)}<div>${origin ? tag("schedule") : `<span class="muted">manual</span>`}</div>${origin ? `<div class="mono">${h(origin)}</div>` : ""}</td>
+      const when = run.endedAt || run.startedAt;
+      return `<tr class="clickable" data-run-drawer="${h(run.runId)}" data-run-status="${h(run.status)}" data-run-action="${h(run.action)}" data-run-origin="${originLabel}" data-run-topic="${h(run.topicId)}">
+      <td class="muted" title="${h(when)}">${h(relativeTime(when))}</td>
+      <td><span class="mono" title="${h(run.runId)}">${h(shortenId(run.runId))}</span></td>
+      <td>${tag(run.action)} <span class="muted">· ${originLabel}${origin ? ` ${h(shortenId(origin))}` : ""}</span></td>
       <td>${tag(run.status)}</td>
-      <td><div class="mono">${h(run.topicId)}</div>${run.projectId ? tag(run.projectId) : ""}<div class="muted">${run.providers.map(h).join(", ")}</div></td>
+      <td><span class="mono">${h(run.topicId)}</span></td>
       <td>${run.rawRecordCount} raw / ${run.normalizedEvidenceCount} ev</td>
-      <td>${h(run.endedAt)}</td>
-      <td>${run.status === "success" ? "" : `<button type="button" data-retry-run="${h(run.runId)}">Retry</button>`}</td>
     </tr>`;
     }).join("")}</tbody>
   </table></div>`;
@@ -425,6 +425,51 @@ function tag(value: string): string {
 
 function h(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
+function shortenId(id: string, keepTail = 8): string {
+  if (!id) return "";
+  if (id.length <= keepTail + 2) return id;
+  return "…" + id.slice(-keepTail);
+}
+
+function humanizeCron(cron: string, timezone = ""): string {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return cron;
+  const [m, hr, dom, mon, dow] = parts;
+  const pad = (s: string) => s.padStart(2, "0");
+  const tz = timezone ? ` ${timezone}` : "";
+  if (m === "0" || /^\d+$/.test(m)) {
+    if (hr === "*" && dom === "*" && mon === "*" && dow === "*") {
+      return `hourly at :${pad(m)}${tz}`;
+    }
+    if (/^\d+$/.test(hr) && dom === "*" && mon === "*" && dow === "*") {
+      return `daily at ${pad(hr)}:${pad(m)}${tz}`;
+    }
+    if (/^\d+$/.test(hr) && dom === "*" && mon === "*" && /^\d+$/.test(dow)) {
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const d = days[Number(dow)] || dow;
+      return `weekly ${d} ${pad(hr)}:${pad(m)}${tz}`;
+    }
+    const everyN = hr.match(/^\*\/(\d+)$/);
+    if (everyN && dom === "*" && mon === "*" && dow === "*") {
+      return `every ${everyN[1]}h at :${pad(m)}${tz}`;
+    }
+  }
+  return `${cron}${tz}`;
+}
+
+function relativeTime(iso: string): string {
+  if (!iso) return "";
+  const ts = Date.parse(iso);
+  if (Number.isNaN(ts)) return iso;
+  const diffSec = Math.round((Date.now() - ts) / 1000);
+  const abs = Math.abs(diffSec);
+  const futureSuffix = diffSec < 0 ? " from now" : " ago";
+  if (abs < 60) return `${abs}s${futureSuffix}`;
+  if (abs < 3600) return `${Math.round(abs / 60)}m${futureSuffix}`;
+  if (abs < 86400) return `${Math.round(abs / 3600)}h${futureSuffix}`;
+  return `${Math.round(abs / 86400)}d${futureSuffix}`;
 }
 
 function clientScript(): string {
@@ -501,6 +546,11 @@ function clientScript(): string {
 
     async function navigateTo(url, options) {
       options = options || {};
+      // Clear any auto-refresh poller from the previous tab before swapping
+      if (window.__opsAutoRefreshTimer) {
+        clearInterval(window.__opsAutoRefreshTimer);
+        window.__opsAutoRefreshTimer = null;
+      }
       try {
         const response = await fetch(url, { headers: { "accept": "text/html" } });
         if (!response.ok) throw new Error("nav " + url + " failed: " + response.status);
@@ -599,6 +649,208 @@ function clientScript(): string {
       } catch (error) {
         drawerBody.innerHTML = '<div class="empty warn">' + escapeHtml(error instanceof Error ? error.message : String(error)) + '</div>';
       }
+    }
+
+    function classifyStderr(text) {
+      if (!text) return null;
+      if (/status=429/i.test(text)) return { code: "rate_limit", label: "rate limit" };
+      if (/status=40[13]/.test(text) || /unauthor|forbidden/i.test(text)) return { code: "auth", label: "auth failed" };
+      if (/status=5\\d\\d/.test(text)) return { code: "upstream", label: "upstream 5xx" };
+      if (/_API_KEY is required|missing required env/i.test(text)) return { code: "missing_env", label: "missing env" };
+      if (/timed ?out|ETIMEDOUT/i.test(text)) return { code: "timeout", label: "timeout" };
+      if (/ENOTFOUND|ECONNREFUSED|fetch failed|network/i.test(text)) return { code: "network", label: "network" };
+      return null;
+    }
+
+    async function openRunDrawer(runId) {
+      if (!drawer || !drawerBody || !drawerActions || !drawerTitle) return;
+      drawerTitle.textContent = "Run " + runId;
+      drawerBody.innerHTML = '<div class="empty">Loading run…</div>';
+      drawerActions.innerHTML = '<button type="button" data-drawer-close class="pill secondary">Close</button>';
+      openDrawer();
+      try {
+        const [runResp, logsResp] = await Promise.all([
+          fetch("/ops/runs/" + encodeURIComponent(runId)),
+          fetch("/ops/runs/" + encodeURIComponent(runId) + "/logs"),
+        ]);
+        const run = await runResp.json();
+        const logsJson = logsResp.ok ? await logsResp.json() : { logs: [] };
+        if (!runResp.ok) throw new Error(run.message || run.error || "run not found");
+        renderRunDrawer(run, logsJson.logs || []);
+      } catch (error) {
+        drawerBody.innerHTML = '<div class="empty warn">' + escapeHtml(error instanceof Error ? error.message : String(error)) + '</div>';
+      }
+    }
+
+    function renderRunDrawer(run, logs) {
+      if (!drawerBody || !drawerActions) return;
+      const cmds = Array.isArray(run.commandResults) ? run.commandResults : [];
+      const providers = Array.isArray(run.providers) ? run.providers : [];
+      const isRunning = run.status === "running";
+      let html = '<table class="kv">' +
+        '<tr><th>runId</th><td class="mono">' + escapeHtml(run.runId || "") + '</td></tr>' +
+        '<tr><th>action</th><td>' + escapeHtml(run.action || "") + '</td></tr>' +
+        '<tr><th>status</th><td>' + escapeHtml(run.status || "") + '</td></tr>' +
+        '<tr><th>topic</th><td class="mono">' + escapeHtml(run.topicId || "") + '</td></tr>' +
+        '<tr><th>providers</th><td>' + providers.map(escapeHtml).join(", ") + '</td></tr>' +
+        '<tr><th>started</th><td class="mono">' + escapeHtml(run.startedAt || "") + '</td></tr>' +
+        '<tr><th>ended</th><td class="mono">' + escapeHtml(run.endedAt || "(running)") + '</td></tr>' +
+        '<tr><th>raw / evidence</th><td>' + (run.rawRecordCount || 0) + ' / ' + (run.normalizedEvidenceCount || 0) + '</td></tr>' +
+        '</table>';
+
+      // Phase inference from logs (works for both running and completed runs)
+      if (logs.length > 0) {
+        const lastCollect = [...logs].reverse().find((l) => /Collecting provider=/.test(String(l.message || "")));
+        const normalizing = logs.some((l) => /Normalizing topic evidence/.test(String(l.message || "")));
+        const finished = logs.some((l) => /^Finished /.test(String(l.message || "")));
+        let phase = "starting";
+        if (finished) phase = "done";
+        else if (normalizing) phase = "normalizing";
+        else if (lastCollect) {
+          const m = String(lastCollect.message).match(/Collecting provider=(\\S+)/);
+          phase = m ? "collecting:" + m[1] : "collecting";
+        }
+        html += '<h3 style="margin:18px 0 8px;font-size:15px">Phase</h3>';
+        html += '<div class="mono">' + escapeHtml(phase) + '</div>';
+      }
+
+      if (run.errorText) {
+        html += '<h3 style="margin:18px 0 8px;font-size:15px">Error</h3>';
+        html += '<div class="empty warn">' + escapeHtml(String(run.errorText)) + '</div>';
+      }
+
+      if (cmds.length > 0) {
+        html += '<h3 style="margin:18px 0 8px;font-size:15px">Commands</h3>';
+        html += '<table><thead><tr><th>Label</th><th>Exit</th><th>Issue</th></tr></thead><tbody>';
+        for (const cmd of cmds) {
+          const stderr = String(cmd.stderr || "");
+          const classified = classifyStderr(stderr);
+          const issueCell = cmd.timedOut ? '<span class="icon warn">timeout</span>'
+            : (classified ? '<span class="icon warn">' + escapeHtml(classified.label) + '</span>'
+              : (cmd.exitCode === 0 ? '<span class="icon ok">ok</span>' : (stderr.slice(0, 80) ? escapeHtml(stderr.slice(0, 80)) : "")));
+          html += '<tr><td>' + escapeHtml(String(cmd.label || "")) + '</td>' +
+            '<td>' + escapeHtml(String(cmd.exitCode ?? "")) + '</td>' +
+            '<td>' + issueCell + '</td></tr>';
+        }
+        html += '</tbody></table>';
+      }
+
+      html += '<details style="margin-top:18px"><summary>Logs (' + logs.length + ' entries)</summary>';
+      html += '<pre class="mono" style="white-space:pre-wrap;max-height:300px;overflow:auto;background:#fff;padding:12px;border-radius:8px;border:1px solid var(--line);margin-top:8px">';
+      html += logs.slice(-30).map((l) => escapeHtml((l.timestamp || "") + " [" + (l.level || "") + "] " + (l.message || ""))).join("\\n");
+      html += '</pre></details>';
+
+      html += '<details style="margin-top:8px"><summary>Paths</summary><table class="kv" style="margin-top:8px">' +
+        '<tr><th>runDir</th><td class="mono">' + escapeHtml(run.runDir || "") + '</td></tr>' +
+        '<tr><th>reportPath</th><td class="mono">' + escapeHtml(run.reportPath || "") + '</td></tr>' +
+        '<tr><th>logPath</th><td class="mono">' + escapeHtml(run.logPath || "") + '</td></tr>' +
+        '</table></details>';
+
+      drawerBody.innerHTML = html;
+      const buttons = ['<a href="/ops/runs/' + encodeURIComponent(run.runId) + '/view" class="pill secondary">Full Page</a>'];
+      if (!isRunning && run.status !== "success") {
+        buttons.push('<button type="button" data-drawer-retry="' + escapeHtml(run.runId) + '">Retry</button>');
+      }
+      buttons.push('<button type="button" data-drawer-close class="pill secondary">Close</button>');
+      drawerActions.innerHTML = buttons.join("");
+      drawerActions.querySelectorAll("[data-drawer-retry]").forEach((btn) => {
+        btn.addEventListener("click", () => withButtonLock(btn, "Retrying…", async () => {
+          const id = btn.getAttribute("data-drawer-retry");
+          const response = await fetch("/ops/runs/" + encodeURIComponent(id) + "/retry", { method: "POST" });
+          const json = await response.json();
+          const cleanupResult = document.getElementById("ops-cleanup-result");
+          if (cleanupResult) {
+            cleanupResult.className = response.ok ? "empty ok" : "empty warn";
+            cleanupResult.textContent = response.ok
+              ? "retry created " + json.runId + " · status=" + json.status
+              : (json.message || json.error || "retry failed");
+          }
+          closeDrawer();
+          if (response.ok) setTimeout(refreshCurrentTab, 400);
+        }));
+      });
+    }
+
+    async function openScheduleDrawer(scheduleId) {
+      if (!drawer || !drawerBody || !drawerActions || !drawerTitle) return;
+      drawerTitle.textContent = "Schedule " + scheduleId;
+      drawerBody.innerHTML = '<div class="empty">Loading schedule…</div>';
+      drawerActions.innerHTML = '<button type="button" data-drawer-close class="pill secondary">Close</button>';
+      openDrawer();
+      try {
+        const response = await fetch("/ops/schedules/" + encodeURIComponent(scheduleId));
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.message || json.error || "schedule not found");
+        renderScheduleDrawer(json);
+      } catch (error) {
+        drawerBody.innerHTML = '<div class="empty warn">' + escapeHtml(error instanceof Error ? error.message : String(error)) + '</div>';
+      }
+    }
+
+    function renderScheduleDrawer(s) {
+      if (!drawerBody || !drawerActions) return;
+      let html = '<table class="kv">' +
+        '<tr><th>id</th><td class="mono">' + escapeHtml(s.id) + '</td></tr>' +
+        '<tr><th>status</th><td>' + escapeHtml(s.status) + '</td></tr>' +
+        '<tr><th>action</th><td>' + escapeHtml(s.action) + '</td></tr>' +
+        '<tr><th>topic</th><td class="mono">' + escapeHtml(s.topicId) + '</td></tr>' +
+        '<tr><th>providers</th><td>' + (s.providers || []).map(escapeHtml).join(", ") + '</td></tr>' +
+        '<tr><th>cron</th><td class="mono">' + escapeHtml(s.cron) + '</td></tr>' +
+        '<tr><th>timezone</th><td>' + escapeHtml(s.timezone) + '</td></tr>' +
+        '<tr><th>next run</th><td class="mono">' + escapeHtml(s.nextRunAt) + '</td></tr>' +
+        '<tr><th>last run</th><td class="mono">' + escapeHtml(s.lastRunAt || "never") + '</td></tr>' +
+        (s.lastRunId ? '<tr><th>last run id</th><td><a href="/ops/runs/' + encodeURIComponent(s.lastRunId) + '/view" class="mono">' + escapeHtml(s.lastRunId) + '</a></td></tr>' : '') +
+        (s.lastRunStatus ? '<tr><th>last status</th><td>' + escapeHtml(s.lastRunStatus) + '</td></tr>' : '') +
+        '<tr><th>dry-run</th><td>' + String(s.dryRun) + '</td></tr>' +
+        (s.query ? '<tr><th>query</th><td>' + escapeHtml(s.query) + '</td></tr>' : '') +
+        '<tr><th>limit</th><td>' + (s.limit || 10) + '</td></tr>' +
+        '<tr><th>created</th><td class="mono">' + escapeHtml(s.createdAt) + '</td></tr>' +
+        '</table>';
+      drawerBody.innerHTML = html;
+      const buttons = [];
+      if (s.status === "active") {
+        buttons.push('<button type="button" data-drawer-schedule="pause" data-drawer-id="' + escapeHtml(s.id) + '" class="secondary">Pause</button>');
+      } else {
+        buttons.push('<button type="button" data-drawer-schedule="resume" data-drawer-id="' + escapeHtml(s.id) + '">Resume</button>');
+      }
+      buttons.push('<button type="button" data-drawer-schedule="run-now" data-drawer-id="' + escapeHtml(s.id) + '" class="secondary">Run Now</button>');
+      buttons.push('<button type="button" data-drawer-schedule="delete" data-drawer-id="' + escapeHtml(s.id) + '" class="secondary">Delete</button>');
+      buttons.push('<button type="button" data-drawer-close class="pill secondary">Close</button>');
+      drawerActions.innerHTML = buttons.join("");
+      drawerActions.querySelectorAll("[data-drawer-schedule]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.getAttribute("data-drawer-schedule");
+          const id = btn.getAttribute("data-drawer-id");
+          if (!id || !action) return;
+          if (action === "delete" && !confirm("Delete schedule " + id + "? Existing runs are kept.")) return;
+          withButtonLock(btn, "Working…", async () => {
+            let response;
+            if (action === "pause" || action === "resume") {
+              response = await fetch("/ops/schedules/" + encodeURIComponent(id), {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ status: action === "pause" ? "paused" : "active" }),
+              });
+            } else if (action === "run-now") {
+              response = await fetch("/ops/schedules/" + encodeURIComponent(id) + "/run-now", { method: "POST" });
+            } else if (action === "delete") {
+              response = await fetch("/ops/schedules/" + encodeURIComponent(id), { method: "DELETE" });
+            } else {
+              return;
+            }
+            const json = await response.json();
+            const scheduleResult = document.getElementById("ops-schedule-result");
+            if (scheduleResult) {
+              scheduleResult.className = response.ok ? "empty ok" : "empty warn";
+              scheduleResult.textContent = response.ok
+                ? action + " " + id + " ok"
+                : (json.message || json.error || "request failed");
+            }
+            closeDrawer();
+            if (response.ok) setTimeout(refreshCurrentTab, 400);
+          });
+        });
+      });
     }
 
     function renderDrawerPreview(data) {
@@ -912,9 +1164,50 @@ function clientScript(): string {
         if (!match) return;
         link.addEventListener("click", (event) => {
           event.preventDefault();
+          event.stopPropagation();
           openPreviewDrawer(match[1]);
         });
       });
+
+      document.querySelectorAll("[data-run-drawer]").forEach((row) => {
+        row.addEventListener("click", (event) => {
+          // Avoid double-trigger on nested links/buttons inside the row.
+          const tagName = (event.target?.tagName || "").toLowerCase();
+          if (tagName === "a" || tagName === "button" || tagName === "select") return;
+          const id = row.getAttribute("data-run-drawer");
+          if (id) openRunDrawer(id);
+        });
+      });
+
+      document.querySelectorAll("[data-schedule-drawer]").forEach((row) => {
+        row.addEventListener("click", (event) => {
+          const tagName = (event.target?.tagName || "").toLowerCase();
+          if (tagName === "a" || tagName === "button" || tagName === "select") return;
+          const id = row.getAttribute("data-schedule-drawer");
+          if (id) openScheduleDrawer(id);
+        });
+      });
+
+      document.querySelectorAll("[data-topic-drawer]").forEach((row) => {
+        row.addEventListener("click", (event) => {
+          const tagName = (event.target?.tagName || "").toLowerCase();
+          if (tagName === "a" || tagName === "button" || tagName === "select") return;
+          const id = row.getAttribute("data-topic-drawer");
+          if (id) navigateTo("/ops/topics/" + encodeURIComponent(id));
+        });
+      });
+
+      // Auto-refresh when an in-progress run is visible on the current tab.
+      // 5s polling is good enough for current run durations (≈30s).
+      const hasRunning = !!document.querySelector("tr[data-run-status='running']");
+      if (hasRunning && !window.__opsAutoRefreshTimer) {
+        window.__opsAutoRefreshTimer = setInterval(() => {
+          // Skip if drawer is open (the user is reading something focused)
+          const drawerEl = document.getElementById("review-drawer");
+          if (drawerEl && !drawerEl.classList.contains("hidden")) return;
+          refreshCurrentTab();
+        }, 5000);
+      }
     }
 
     bindContentHandlers();
@@ -925,25 +1218,18 @@ function renderSchedules(overview: OpsOverview): string {
   const schedules = overview.schedules;
   return `<div class="ops-actions">
     ${schedules.length === 0 ? `<div class="empty">No schedules yet. Use the New Run form above (set Mode to "Recurring") to create one.</div>` : `<table>
-      <thead><tr><th>Schedule</th><th>Action</th><th>Topic / Providers</th><th>Cron</th><th>Next Run</th><th>Last Run</th><th>Status</th><th>Controls</th></tr></thead>
-      <tbody>${schedules.map((s) => `<tr>
-        <td><b>${h(s.id)}</b><div class="muted">created ${h(s.createdAt)}</div></td>
+      <thead><tr><th>Schedule</th><th>Action</th><th>Topic / Providers</th><th>Frequency</th><th>Next Run</th><th>Last Run</th><th>Status</th></tr></thead>
+      <tbody>${schedules.map((s) => `<tr class="clickable" data-schedule-drawer="${h(s.id)}">
+        <td><b class="mono" title="${h(s.id)}">${h(shortenId(s.id))}</b><div class="muted">created ${h(relativeTime(s.createdAt))}</div></td>
         <td>${tag(s.action)}${s.dryRun ? tag("dry-run") : ""}</td>
-        <td><div class="mono">${h(s.topicId)}</div>${s.projectId ? tag(s.projectId) : ""}<div class="muted">${s.providers.map(h).join(", ")}</div>${s.query ? `<div class="muted">q: ${h(s.query)}</div>` : ""}</td>
-        <td class="mono">${h(s.cron)}<div class="muted">${h(s.timezone)}</div></td>
-        <td class="mono">${h(s.nextRunAt)}</td>
-        <td>${s.lastRunAt ? `<div class="mono">${h(s.lastRunAt)}</div>${s.lastRunStatus ? tag(s.lastRunStatus) : ""}${s.lastRunId ? `<div class="mono"><a href="/ops/runs/${h(s.lastRunId)}/view">${h(s.lastRunId)}</a></div>` : ""}` : `<span class="muted">never</span>`}</td>
+        <td><span class="mono">${h(s.topicId)}</span><div class="muted">${s.providers.map(h).join(", ")}</div></td>
+        <td title="${h(s.cron)}">${h(humanizeCron(s.cron, s.timezone))}</td>
+        <td class="muted" title="${h(s.nextRunAt)}">${h(relativeTime(s.nextRunAt))}</td>
+        <td>${s.lastRunAt ? `${s.lastRunStatus ? tag(s.lastRunStatus) : ""}<div class="muted" title="${h(s.lastRunAt)}">${h(relativeTime(s.lastRunAt))}</div>` : `<span class="muted">never</span>`}</td>
         <td>${tag(s.status)}</td>
-        <td><div class="hero-actions inline">
-          ${s.status === "active"
-            ? `<button type="button" data-schedule-id="${h(s.id)}" data-schedule-action="pause" class="secondary">Pause</button>`
-            : `<button type="button" data-schedule-id="${h(s.id)}" data-schedule-action="resume">Resume</button>`}
-          <button type="button" data-schedule-id="${h(s.id)}" data-schedule-action="run-now" class="secondary">Run Now</button>
-          <button type="button" data-schedule-id="${h(s.id)}" data-schedule-action="delete" class="secondary">Delete</button>
-        </div></td>
       </tr>`).join("")}</tbody>
     </table>`}
-    <div id="ops-schedule-result" class="empty" style="margin-top:12px">Schedule control results appear here.</div>
+    <div id="ops-schedule-result" class="empty" style="margin-top:12px">Click a row to open schedule controls.</div>
   </div>`;
 }
 
@@ -1015,15 +1301,173 @@ function renderHandoffFiles(overview: OpsOverview): string {
   const topics = overview.topics.filter((topic) => topic.artifacts.gameLensHandoffExists || topic.artifacts.normalizedExists);
   if (topics.length === 0) return `<div class="empty">No topics have a normalized or handoff file yet. Run collect-and-normalize from Collection to create them.</div>`;
   return `<table>
-    <thead><tr><th>Topic</th><th>Handoff</th><th>Normalized</th><th>Counts</th><th>Last Updated</th></tr></thead>
+    <thead><tr><th>Topic</th><th>Files</th><th>Counts</th><th>Last Updated</th></tr></thead>
     <tbody>${topics.map((topic) => `<tr>
       <td><b>${h(topic.name)}</b><div class="mono">${h(topic.id)}</div></td>
-      <td>${topic.artifacts.gameLensHandoffExists ? `${tag("exists")}<div class="mono">${h(topic.artifacts.gameLensHandoffPath)}</div>` : tag("missing")}</td>
-      <td>${topic.artifacts.normalizedExists ? `${tag("exists")}<div class="mono">${h(topic.artifacts.normalizedPath)}</div>` : tag("missing")}</td>
+      <td>
+        <span class="icon ${topic.artifacts.gameLensHandoffExists ? "ok" : "off"}" title="${h(topic.artifacts.gameLensHandoffPath || "missing")}">${topic.artifacts.gameLensHandoffExists ? "✓" : "✗"} handoff</span>
+        <span class="icon ${topic.artifacts.normalizedExists ? "ok" : "off"}" title="${h(topic.artifacts.normalizedPath || "missing")}">${topic.artifacts.normalizedExists ? "✓" : "✗"} normalized</span>
+        <span class="icon ${topic.artifacts.reportExists ? "ok" : "off"}" title="${h(topic.artifacts.reportPath || "missing")}">${topic.artifacts.reportExists ? "✓" : "✗"} report</span>
+      </td>
       <td><div>${topic.artifacts.gameLensEvidenceCount} gamelens</div><div class="muted">${topic.artifacts.normalizedRecordCount} normalized</div></td>
-      <td class="mono">${h(topic.artifacts.lastRawUpdatedAt || topic.artifacts.reportUpdatedAt || "n/a")}</td>
+      <td class="muted" title="${h(topic.artifacts.lastRawUpdatedAt || topic.artifacts.reportUpdatedAt || "")}">${h(relativeTime(topic.artifacts.lastRawUpdatedAt || topic.artifacts.reportUpdatedAt || ""))}</td>
     </tr>`).join("")}</tbody>
   </table>`;
+}
+
+export function renderTopicDetailPage(topic: OpsOverview["topics"][number], overview: OpsOverview): string {
+  const collectable = new Set(["steam", "youtube", "reddit"]);
+  const topicSchedules = overview.schedules.filter((s) => s.topicId === topic.id);
+  const topicRuns = overview.recentOpsRuns.filter((r) => r.topicId === topic.id).slice(0, 20);
+  const topicReviews = overview.reviewQueue.filter((r) => r.topicId === topic.id && r.status === "pending");
+  const channels = topic.dataSources.map((src) => {
+    const provider = overview.providers.find((p) => p.id === src);
+    const lastRun = topicRuns.find((r) => r.providers.includes(src));
+    return {
+      id: src,
+      enabled: collectable.has(src),
+      envState: provider?.envState || "unknown",
+      lastRunStatus: lastRun?.status || "",
+      lastRunAt: lastRun?.endedAt || lastRun?.startedAt || "",
+      label: provider?.label || src,
+      notes: provider?.notes || "",
+    };
+  });
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${h(topic.name)} — Scout Ops</title>
+  <style>${styles()}</style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow"><a href="/ops/topics" style="color:#e1b083">Topics</a> ›</p>
+        <h1>${h(topic.name)}</h1>
+        <p class="lede">${h(topic.description || "No description.")}</p>
+        <div class="muted" style="color:#d4c9b8;margin-top:8px">
+          ${tag(topic.status)}${tag(topic.priority)}${tag(topic.intent)}
+          <span class="mono">${h(topic.id)}</span>
+          ${topic.projectId ? ` · ${tag(topic.projectId)}` : ""}
+          · ${h(topic.vertical)} / ${h(topic.market || "?")} / ${h(topic.language || "?")}
+          · owner ${h(topic.owner || "—")}
+          · cadence ${h(topic.refreshCadence || "—")}
+        </div>
+      </div>
+      <div class="hero-actions">
+        <a class="pill" href="/ops/topics">← Topics</a>
+        <a class="pill" href="/ops/collection">Open Collection</a>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <article class="panel">
+        <div class="panel-head"><h2>Channels</h2><span>${channels.filter((c) => c.envState !== "missing").length}/${channels.length} ready</span></div>
+        ${channels.length === 0 ? `<div class="empty">No data sources configured for this topic.</div>` : `<table>
+          <thead><tr><th>Channel</th><th>Status</th><th>Last Run</th></tr></thead>
+          <tbody>${channels.map((c) => `<tr>
+            <td><b>${h(c.id)}</b><div class="muted">${h(c.label)}</div></td>
+            <td>
+              ${c.envState === "missing" ? `<span class="icon warn">missing env</span>` : ""}
+              ${!c.enabled ? `<span class="icon off">not in SO2 allowlist</span>` : ""}
+              ${c.enabled && c.envState !== "missing" ? `<span class="icon ok">ready</span>` : ""}
+            </td>
+            <td>${c.lastRunStatus ? `${tag(c.lastRunStatus)}<div class="muted" title="${h(c.lastRunAt)}">${h(relativeTime(c.lastRunAt))}</div>` : `<span class="muted">never</span>`}</td>
+          </tr>`).join("")}</tbody>
+        </table>`}
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><h2>Schedules</h2><span>${topicSchedules.length} total, ${topicSchedules.filter((s) => s.status === "active").length} active</span></div>
+        ${topicSchedules.length === 0 ? `<div class="empty">No schedules. Use <a href="/ops/collection">Collection</a> to create one for this topic.</div>` : `<table>
+          <thead><tr><th>Schedule</th><th>Frequency</th><th>Next</th><th>Status</th></tr></thead>
+          <tbody>${topicSchedules.map((s) => `<tr class="clickable" data-schedule-drawer="${h(s.id)}">
+            <td><span class="mono" title="${h(s.id)}">${h(shortenId(s.id))}</span></td>
+            <td title="${h(s.cron)}">${h(humanizeCron(s.cron, s.timezone))}</td>
+            <td class="muted" title="${h(s.nextRunAt)}">${h(relativeTime(s.nextRunAt))}</td>
+            <td>${tag(s.status)}</td>
+          </tr>`).join("")}</tbody>
+        </table>`}
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Recent Runs</h2><span>${topicRuns.length} for this topic</span></div>
+      ${topicRuns.length === 0 ? `<div class="empty">No runs for this topic yet.</div>` : `<table>
+        <thead><tr><th>When</th><th>Run</th><th>Action</th><th>Status</th><th>Counts</th></tr></thead>
+        <tbody>${topicRuns.map((r) => `<tr class="clickable" data-run-drawer="${h(r.runId)}">
+          <td class="muted" title="${h(r.endedAt || r.startedAt)}">${h(relativeTime(r.endedAt || r.startedAt))}</td>
+          <td><span class="mono" title="${h(r.runId)}">${h(shortenId(r.runId))}</span></td>
+          <td>${tag(r.action)}</td>
+          <td>${tag(r.status)}</td>
+          <td>${r.rawRecordCount} raw / ${r.normalizedEvidenceCount} ev</td>
+        </tr>`).join("")}</tbody>
+      </table>`}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Pending Reviews</h2><span>${topicReviews.length} for this topic</span></div>
+      ${topicReviews.length === 0 ? `<div class="empty ok">No pending reviews.</div>` : `<table>
+        <thead><tr><th>Review</th><th>Evidence</th><th>Created</th><th></th></tr></thead>
+        <tbody>${topicReviews.map((item) => `<tr>
+          <td><span class="mono" title="${h(item.id)}">${h(shortenId(item.id))}</span></td>
+          <td>${item.normalizedEvidenceCount} ev</td>
+          <td class="muted" title="${h(item.createdAt)}">${h(relativeTime(item.createdAt))}</td>
+          <td><a href="/ops/review-queue/${h(item.id)}/preview" class="pill">Preview</a></td>
+        </tr>`).join("")}</tbody>
+      </table>`}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Artifacts</h2><span>files exist for this topic</span></div>
+      <table>
+        <thead><tr><th>File</th><th>Status</th><th>Count</th><th>Updated</th></tr></thead>
+        <tbody>
+          <tr><td><b>normalized evidence</b></td>
+            <td><span class="icon ${topic.artifacts.normalizedExists ? "ok" : "off"}" title="${h(topic.artifacts.normalizedPath)}">${topic.artifacts.normalizedExists ? "✓ exists" : "✗ missing"}</span></td>
+            <td>${topic.artifacts.normalizedRecordCount} rows</td>
+            <td class="muted"></td></tr>
+          <tr><td><b>gamelens handoff</b></td>
+            <td><span class="icon ${topic.artifacts.gameLensHandoffExists ? "ok" : "off"}" title="${h(topic.artifacts.gameLensHandoffPath)}">${topic.artifacts.gameLensHandoffExists ? "✓ exists" : "✗ missing"}</span></td>
+            <td>${topic.artifacts.gameLensEvidenceCount} items</td>
+            <td class="muted"></td></tr>
+          <tr><td><b>report markdown</b></td>
+            <td><span class="icon ${topic.artifacts.reportExists ? "ok" : "off"}" title="${h(topic.artifacts.reportPath)}">${topic.artifacts.reportExists ? "✓ exists" : "✗ missing"}</span></td>
+            <td></td>
+            <td class="muted" title="${h(topic.artifacts.reportUpdatedAt || "")}">${h(relativeTime(topic.artifacts.reportUpdatedAt || ""))}</td></tr>
+          <tr><td><b>raw files</b></td>
+            <td>${topic.artifacts.rawFileCount > 0 ? `<span class="icon ok">${topic.artifacts.rawFileCount} files</span>` : `<span class="icon off">none</span>`}</td>
+            <td>${topic.artifacts.rawRecordCount} records</td>
+            <td class="muted" title="${h(topic.artifacts.lastRawUpdatedAt || "")}">${h(relativeTime(topic.artifacts.lastRawUpdatedAt || ""))}</td></tr>
+        </tbody>
+      </table>
+      <details style="margin-top:14px"><summary>Full paths (hover icons above for short tooltip)</summary>
+        <table class="kv" style="margin-top:8px">
+          ${kv("normalized", topic.artifacts.normalizedPath || "—")}
+          ${kv("handoff", topic.artifacts.gameLensHandoffPath || "—")}
+          ${kv("report", topic.artifacts.reportPath || "—")}
+          ${kv("topic dir", topic.artifacts.topicDir || "—")}
+        </table>
+      </details>
+    </section>
+  </main>
+  <aside id="review-drawer" class="review-drawer hidden" aria-hidden="true">
+    <div class="drawer-overlay" data-drawer-close></div>
+    <div class="drawer-panel">
+      <header class="drawer-head">
+        <h3 id="drawer-title">Details</h3>
+        <button type="button" data-drawer-close class="pill secondary">Close</button>
+      </header>
+      <div id="drawer-body" class="drawer-body"></div>
+      <footer id="drawer-actions" class="drawer-actions"></footer>
+    </div>
+  </aside>
+  <script>${clientScript()}</script>
+</body>
+</html>`;
 }
 
 export function renderRunDetailPage(run: Record<string, unknown>): string {
@@ -1244,6 +1688,17 @@ function styles(): string {
     .tab-body.hidden { display:none; }
     .topic-details.hidden { display:none; }
     .runs-filter { width:auto !important; padding:8px 10px !important; font-size:12px !important; }
+    .icon { display:inline-block; padding:2px 8px; margin:0 4px 4px 0; border-radius:6px; font-size:12px; font-family:var(--mono); }
+    .icon.ok { background:rgba(38,111,82,.12); color:var(--ok); border:1px solid rgba(38,111,82,.28); }
+    .icon.off { background:rgba(120,120,120,.08); color:var(--muted); border:1px solid rgba(120,120,120,.18); }
+    .icon.warn { background:rgba(163,100,0,.10); color:var(--warn); border:1px solid rgba(163,100,0,.28); }
+    tr.clickable { cursor:pointer; }
+    tr.clickable:hover { background:rgba(0,0,0,.03); }
+    .step-strip { display:inline-flex; gap:4px; align-items:center; }
+    .step-strip .step { width:8px; height:8px; border-radius:50%; background:rgba(0,0,0,.15); }
+    .step-strip .step.active { background:var(--accent); }
+    .step-strip .step.done { background:var(--ok); }
+    .step-strip .step.error { background:var(--bad); }
     .dashboard-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .needs-attention, .activity-timeline { margin:0; padding-left:18px; line-height:1.7; }
     .needs-attention li, .activity-timeline li { margin:6px 0; }

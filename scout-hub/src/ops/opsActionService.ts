@@ -66,6 +66,25 @@ export class OpsActionService {
     const reportPath = path.join(runDir, "report.md");
     await fs.mkdir(runDir, { recursive: true });
 
+    // Write an in-progress summary stub so listings can observe running runs
+    // before the synchronous spawn loop completes.
+    await writeJson(summaryPath, {
+      runId,
+      action,
+      status: "running",
+      topicId: prepared.topic.id,
+      projectId: prepared.topic.projectId,
+      vertical: prepared.topic.vertical,
+      providers: prepared.providers,
+      dryRun: prepared.dryRun,
+      startedAt,
+      endedAt: "",
+      runDir,
+      reportPath,
+      rawRecordCount: 0,
+      normalizedEvidenceCount: 0,
+    });
+
     const log = async (level: "info" | "warn" | "error", message: string, data: Record<string, unknown> = {}) => {
       await appendJsonl(logPath, {
         timestamp: new Date().toISOString(),
