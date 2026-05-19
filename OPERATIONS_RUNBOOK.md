@@ -1,149 +1,283 @@
-# Scout Lab 正式运营启动手册
+# Scout Lab Operations Runbook
 
-## 0. 现状说明（2026-05 更新）
+## 1. 当前系统形态（2026-05 更新）
 
-本手册原本针对 `intel_hub`（Python）的运行链路。当前生产链路重心已迁移
-到 `scout-hub`（TypeScript）的 Ops Console + Schedules：
+Scout Lab 由两套独立的采集体系组成。它们不竞争，分工服务不同
+垂类。运营员（含本团队所有上手成员）的日常入口是 **scout-hub 的
+Ops Console**：`http://127.0.0.1:18080/ops`。
 
-- 游戏类素材采集走 Steam / YouTube / Reddit。运营员在 `http://127.0.0.1:18080/ops`
-  手动触发，或通过 Schedules 定时执行；产物全部进 review queue 等审阅。
-- `intel_hub`、`mediacrawler`、`wechat-spider` 暂时冻结，不再投入新功能。
-  `scout-hub-scheduler` 容器默认不调用 `pipeline.runOnce()`
-  （`SCOUT_PIPELINE_TICK_ENABLED=false`）。
-- scout-hub 的启动、配置、调度、测试细节见
-  `/Users/sourcefire/1data/scout-lab/scout-hub/README.md`。
+### 1.1 Ops Console 直接驱动的渠道
 
-下面"intel_hub 启动"相关章节（第 1 节起）仅在确实需要重新启用旧链路时
-使用。新人上手优先看 scout-hub README。
+公开 API 渠道，scout-hub 同步执行：
 
-## 1. 体系目标
+- **Steam**（store search + reviews）— 无需 key
+- **YouTube**（Data API v3）— 需要 `YOUTUBE_API_KEY`
+- **Reddit**（公开 JSON search）— 无需 key
 
-当前目录包含三个运行单元：
+这三个走 `scout-vendor/` 下的 connectors，由 `OpsActionService`
+通过子进程同步调用。所有运行都进 Ops Console 的 run history +
+review queue。
 
-- `/Users/sourcefire/1data/scout-lab/scout-vendor/mediacrawler`：多平台内容抓取与 WebUI/API。
-- `/Users/sourcefire/1data/scout-lab/wechat-spider`：公众号抓取与动态数据入库（MySQL/Redis）。
-- `/Users/sourcefire/1data/scout-lab/intel_hub`：统一采集、去重入湖、重试、DLQ、调度、监控 API。
+### 1.2 外部驱动、共享数据的渠道
 
-推荐生产链路：
+CN 平台与公众号，由各自独立服务运行，scout-hub 当前只能**监控
+存活 + 复用产物**，不主动启动爬虫：
 
-1. 平台抓取（MediaCrawler + wechat-spider）
-2. 统一入湖（intel_hub pipeline/scheduler）
-3. 健康与告警（intel_hub monitor API）
+- **MediaCrawler**（小红书 / 抖音 / B 站 / 微博 / 知乎 / 贴吧 /
+  快手）— FastAPI 服务，监听 `:18081`。需手动启动且首次需登录。
+- **WeChat Spider**（公众号文章 + 评论）— docker stack 长驻服务，
+  数据落 MariaDB。
 
-## 2. 一次性准备
+这两条线的实际数据采集质量更高、跨度更长，是 lab 项目里**实战
+验证过的**。但因为登录态与限流策略复杂，目前不在 Ops Console 的
+直接执行范围内；只在 Provider 页的 Test 按钮里做存活探测。
 
-先安装基础依赖（Mac 示例）：
+### 1.3 数据流
 
-```bash
-brew install python@3.11 docker curl
+```
++-- Ops Console (scout-hub) ---+    +-- MediaCrawler API --+
+| 5 tabs · schedules · review  |    | :18081 webui+API     |
++---------------+--------------+    +-----------+----------+
+                |                               |
+                v                               v
+        scout-vendor connectors         data/<platform>/jsonl/
+        (steam/youtube/reddit)
+                |                               |
+                v                               v
+        runtime/<project>/topics/      (operator-driven, separate)
+        <topic-id>/raw/<provider>/*.jsonl
+                |
+                v
+        normalize → evidence.jsonl + handoff/evidence.json
+                |
+                v
+        review-queue/*.json  ──→  approved
+                                       |
+                                       v
+                                  downstream (GameLens etc.)
 ```
 
-然后初始化脚本与 Python 运行环境：
+---
+
+## 2. 日常运营入口（操作员用）
+
+### 2.1 启动方式
+
+**生产推荐**：docker compose（自动拉 env、scheduler 常驻）
 
 ```bash
-/Users/sourcefire/1data/scout-lab/ops/bootstrap.sh
+cd /Users/sourcefire/1data/scout-lab/scout-deploy
+docker compose up -d
 ```
 
-如果要完整安装 MediaCrawler 全量依赖（更慢）：
+容器状态：
+
+| 容器 | 端口 | 作用 |
+|---|---|---|
+| `scout-stack-scout-hub-api-1` | :18080 | Ops Console + 所有 API |
+| `scout-stack-scout-hub-scheduler-1` | — | 60s tick 驱动定时 schedule |
+| `scout-stack-mariadb-1` | :3306 | WeChat 数据 |
+| `scout-stack-redis-1` | :6379 | WeChat 任务队列 |
+| `scout-stack-wechat-spider-1` | :8080/:8081 | 公众号爬虫 |
+
+更新代码到容器：
 
 ```bash
-/Users/sourcefire/1data/scout-lab/ops/bootstrap.sh --full-mediacrawler
+docker compose build scout-hub-api scout-hub-scheduler
+docker compose up -d scout-hub-api scout-hub-scheduler
 ```
 
-## 3. 配置填充（必须）
-
-编辑以下 3 个文件：
-
-- `/Users/sourcefire/1data/scout-lab/ops/env/mediacrawler.env`
-- `/Users/sourcefire/1data/scout-lab/ops/env/wechat.env`
-- `/Users/sourcefire/1data/scout-lab/ops/env/intel_hub.env`
-
-关键项：
-
-- `MEDIACRAWLER_API_PORT=18081`（当前默认值，可按需调整）。
-- `MEDIACRAWLER_API_KEY` 当前是预留字段，未来补鉴权层时会用到。
-- `MEDIACRAWLER_TRUSTED_HOSTS` 当前也是预留字段，不是现阶段主安全边界。
-- `WECHAT_MYSQL_PASSWD` 必须改为强口令。
-- `INTEL_WECHAT_ENABLE_DB=true`（联通微信数据时）。
-
-## 4. 启动前扫描（必须通过）
+**本地开发**：直接跑 tsx（自动读取 scout-deploy/env/scout-hub.env）
 
 ```bash
-/Users/sourcefire/1data/scout-lab/ops/scan.sh
+cd scout-hub
+npm install   # 仅首次
+npx tsx src/cli.ts api --port 18090
 ```
 
-判定规则：
+### 2.2 Ops Console 5 个 Tab
 
-- `FAIL=0` 才允许进入正式启动。
-- `WARN>0` 需要人工确认风险。
+进入 `http://127.0.0.1:18080/ops` 默认是 Dashboard。
 
-## 5. 正式启动顺序
+| Tab | URL | 用途 |
+|---|---|---|
+| **Dashboard** | `/ops/dashboard` | 工作起点：待审 / 失败 schedule / 缺 env provider 一屏概览 |
+| **Topics** | `/ops/topics` | 按 vertical/project/搜索筛选 topic；点行进详情页 |
+| **Topic Detail** | `/ops/topics/:topicId` | 该 topic 的 Channels / Schedules / Runs / Reviews / Artifacts；右上 Run Now drawer |
+| **Collection** | `/ops/collection` | 新任务表单（Mode = Run now / Dry run / Schedule）；下方 sub-tab 切 Recent Runs 与 Schedules |
+| **Review & Handoff** | `/ops/review` | pending review queue + 抽屉式 preview + handoff 文件总览 |
+| **System** | `/ops/system` | Providers 状态 + Test 按钮 + Alerts |
+
+### 2.3 典型工作流
+
+**A. 触发一次性采集**：
+
+1. Dashboard 看是否有 pending review 阻塞
+2. Topics → 选项目（vertical/project filter） → 点 topic 行
+3. Topic Detail → 右上 **Run Now** → drawer 内勾 channels → 提交
+4. drawer 关，当前 tab 5s 自动 refresh 显示新 run
+5. 跑完进 Review tab → 点 Preview drawer → Approve / Reject
+
+**B. 设置定时任务**：
+
+1. Collection tab → New Run 表单 → Mode = **Schedule recurring**
+2. 选 Topic + Channels；Frequency = Daily 09:07 / Weekly Mon / Hourly / Every N hours
+3. 点 Save schedule
+4. 下方 Schedules sub-tab 看到新行；点行进 schedule drawer 可 Pause / Resume / Run Now / Delete
+
+**C. 定时跑出来后审阅**：
+
+1. Dashboard "Needs Attention" 直接列 pending review
+2. 点 → 跳 Review tab → Preview drawer 看 normalized sample + handoff JSON
+3. drawer 内 Approve / Reject → 自动 refresh
+
+**D. 跑失败排查**：
+
+1. Recent Runs 表 → status filter "failed" → 整行点开 drawer
+2. drawer 显示 Phase（从 logs 推断）+ Commands 表 + 错误归类 pill（rate_limit / auth / upstream / missing_env / timeout / network）
+3. drawer 内 Retry 按钮，或跳 Full Page 看 commandResults / logs 末尾 30 行
+
+### 2.4 健康检查
+
+| 命令 | 期待 |
+|---|---|
+| `curl http://127.0.0.1:18080/health` | `{"status":"ok"...}` |
+| `curl http://127.0.0.1:18080/alerts` | `{"alerts":[]}` 或告警列表 |
+| Ops Console → System tab → Test 每个 provider | 三家 ready，mediacrawler/wechat 看下面 2.5 |
+
+### 2.5 MediaCrawler 启动（按需）
+
+scout-hub 不会自动启动 mediacrawler。需要时手工：
 
 ```bash
-/Users/sourcefire/1data/scout-lab/ops/start.sh
+cd /Users/sourcefire/1data/scout-lab/scout-vendor/mediacrawler
+source .venv/bin/activate
+python -m api.main   # 或参考 mediacrawler/README.md
 ```
 
-该脚本按顺序执行：
+启动后 System tab 的 mediacrawler Test 按钮应返回 `ok`。
 
-1. 启动 `wechat-spider` docker 组件（mariadb/redis/wechat-spider）。
-2. 启动 `MediaCrawler API`（默认 18081）。
-3. 启动 `intel_hub scheduler`（默认每 300 秒）。
-4. 启动 `intel_hub monitor API`（默认 18080）。
+WeChat Spider 由 docker compose 自动管理，正常情况下不需要手动启动。
 
-## 6. 启动后验收
+---
 
-查看运行状态：
+## 3. 关键配置
+
+### 3.1 env 来源（按优先级）
+
+scout-hub 启动时按以下顺序加载 env，**前面的优先**：
+
+1. `SCOUT_ENV_FILE` 环境变量指定的文件
+2. `scout-hub/.env`（本地开发者覆盖）
+3. `scout-deploy/env/scout-hub.env`（docker / 团队共享）
+
+意味着：日常修改 prod 配置改 `scout-deploy/env/scout-hub.env`，
+临时本地实验放 `scout-hub/.env`，特殊情况用 `SCOUT_ENV_FILE`。
+
+### 3.2 关键变量
+
+| 变量 | 默认 | 何时改 |
+|---|---|---|
+| `SCOUT_RUNTIME_ROOT` | `<projectRoot>/../scout` | 运行时数据目录 |
+| `SCOUT_PIPELINE_TICK_ENABLED` | `false` | 启用旧 wechat/mediacrawler pipeline tick（已冻结，一般不用开） |
+| `SCOUT_OPS_SHOW_PIPELINE_VIEWS` | `false` | 在 `/ops/system` 显示 Hub Health / Recent Hub Runs |
+| `SCOUT_OPS_ACTION_TIMEOUT_MS` | `180000` | 单次子进程超时 |
+| `SCOUT_OPS_RUN_RETENTION_DAYS` | `30` | run 目录保留天数 |
+| `SCOUT_OPS_RUN_RETENTION_MAX` | `300` | run 目录保留条数 |
+| `YOUTUBE_API_KEY` | — | YouTube Data API 必需 |
+| `MEDIACRAWLER_API_URL` | `http://127.0.0.1:18081` | mediacrawler 健康检查目标 |
+| `WECHAT_MYSQL_PASSWD` | — | docker 内 mariadb 密码 |
+
+### 3.3 关键目录
+
+```
+scout-lab/                                  ← 代码 + 配置（git 内）
+├── scout-hub/                              ← TS 控制平面
+├── scout-vendor/                           ← 公开 API connectors + mediacrawler 镜像
+├── scout-media-agents/config/topics/       ← scout-topics.json
+├── scout-media-agents/config/trend-seeds.csv
+├── scout-deploy/                           ← docker compose + env files
+└── ...
+
+scout/                                       ← 运行时（git 外，定期备份）
+├── runs/scout_run_*/                       ← 每次 run 的 summary + logs + items
+├── topics/<vertical>/<topicId>/            ← raw / normalized / handoff
+├── review-queue/review_scout_run_*.json    ← 审阅记录
+└── schedules/schedule_*.json               ← 定时配置
+```
+
+---
+
+## 4. 排错指南
+
+### 4.1 Topic 全部 channel 不可用
+
+UI 表现：Collection tab 选某 topic 后所有 channel checkbox 灰掉，
+Run 按钮禁用 + 红字提示 "runs as an external service"。
+
+含义：该 topic 用的是 mediacrawler / wechat-spider，scout-hub 不
+直接驱动。去 mediacrawler webui 或 wechat-spider 服务自己跑。
+
+### 4.2 YouTube 显示 "missing env"
+
+`scout-deploy/env/scout-hub.env` 应该有 `YOUTUBE_API_KEY=...`。
+如果是本地 tsx 启动，检查启动目录是不是 `scout-hub/`（env 文件
+查找路径相对于 cwd）。
+
+### 4.3 Schedule 设了但不跑
+
+确认 scheduler 容器在跑：
 
 ```bash
-/Users/sourcefire/1data/scout-lab/ops/status.sh
+docker logs --tail 20 scout-stack-scout-hub-scheduler-1
 ```
 
-关键健康检查：
+应该看到 `{"event":"scheduler_pipeline_tick_disabled"}`（一次）
++ 每分钟一次的 schedules_triggered 或安静。如果容器挂了，
+`docker compose up -d scout-hub-scheduler`。
+
+### 4.4 Cleanup Runs 删了在跑的 run
+
+不会。`cleanupRuns` 已经在 status="running" 检查里跳过运行中的
+run（fix: opsActionService cleanupRuns 加 status check）。如果
+看到此现象，提 issue 并附 run.json 内容。
+
+### 4.5 Ops Console 显示但操作 405/404
+
+`/ops/runs/:runId/view` / `/ops/review-queue/:id/preview` 这些
+是 scout-hub 内置 HTML 路由。404 时多半是 runId / reviewId 拼写
+错误（注意 ID 必须以 `scout_run_` / `review_scout_run_` 开头）。
+
+---
+
+## 5. 备份与回滚
+
+### 5.1 运行时数据备份（手动）
 
 ```bash
-curl -sS http://127.0.0.1:18081/api/health
-curl -sS http://127.0.0.1:18080/health
-curl -sS http://127.0.0.1:18080/alerts
-curl -sS http://127.0.0.1:18080/runs
+rsync -av /Users/sourcefire/1data/scout/ /Users/sourcefire/backups/scout-$(date +%Y%m%d)/
 ```
 
-## 7. 日常运营与阈值
+关键目录：`schedules/`、`review-queue/`、`topics/*/handoff/`。
+（监控告警 / 自动备份 / 权限隔离，暂由运营员手动管理，待业务稳定后再投入。）
 
-建议巡检频率：
-
-- 每 5 分钟检查 `/health` 与 `/alerts`。
-- 每 1 小时检查 `intel_pipeline_runs` 的失败数。
-
-建议阈值：
-
-- `INTEL_ALERT_DLQ_THRESHOLD=10`（DLQ 超阈值触发告警）。
-- 30 分钟内连续失败 >= 3 次，触发人工介入。
-
-## 8. 回滚与停机
-
-紧急停机：
+### 5.2 代码回滚
 
 ```bash
-/Users/sourcefire/1data/scout-lab/ops/stop.sh
+cd /Users/sourcefire/1data/scout-lab
+git log --oneline -10                                # 找上一个稳定 commit
+git checkout <commit-sha> -- scout-hub/              # 回滚 scout-hub
+cd scout-deploy && docker compose build && docker compose up -d
 ```
 
-回滚策略：
+---
 
-1. 停止全部进程与容器。
-2. 回退配置文件（`ops/env/*.env`）。
-3. 回退代码到上一个稳定版本。
-4. 重新执行 `scan.sh`，确认 `FAIL=0` 后再启动。
+## 6. 历史路径（已冻结，仅供参考）
 
-## 9. 日志与定位
+`intel_hub/`（Python FastAPI + SQLite/MySQL pipeline）是 2025 年
+的原始控制平面，现已被 scout-hub 取代，目录保留以便参考代码 +
+数据迁移历史。
 
-日志目录：
-
-- `/Users/sourcefire/1data/scout-lab/runtime/logs`
-
-常用排查：
-
-```bash
-tail -n 200 /Users/sourcefire/1data/scout-lab/runtime/logs/mediacrawler_api.log
-tail -n 200 /Users/sourcefire/1data/scout-lab/runtime/logs/intel_scheduler.log
-tail -n 200 /Users/sourcefire/1data/scout-lab/runtime/logs/intel_monitor.log
-```
+`scout-hub-scheduler` 容器默认禁用旧 pipeline tick
+（`SCOUT_PIPELINE_TICK_ENABLED=false`），所以也不会去消费
+intel_hub 风格的 pipeline 数据。
