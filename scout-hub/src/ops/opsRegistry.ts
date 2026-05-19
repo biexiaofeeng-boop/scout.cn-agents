@@ -80,9 +80,11 @@ export async function loadOpsTopics(topicConfigPath: string): Promise<OpsTopic[]
 export function providersWithEnvState(): OpsProvider[] {
   return OPS_PROVIDERS.map((provider) => {
     const missing = provider.envRequired.filter((key) => !process.env[key]);
+    const envState = provider.envRequired.length === 0 ? "not_required" : missing.length === 0 ? "ready" : "missing";
     return {
       ...provider,
-      envState: provider.envRequired.length === 0 ? "not_required" : missing.length === 0 ? "ready" : "missing",
+      status: provider.status === "needs_key" && envState === "ready" ? "ready" : provider.status,
+      envState,
     };
   });
 }

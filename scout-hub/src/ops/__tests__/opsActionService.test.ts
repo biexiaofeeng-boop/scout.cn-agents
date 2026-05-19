@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { OpsActionService } from "../opsActionService.js";
+import { providersWithEnvState } from "../opsRegistry.js";
 import type { ScoutPipeline } from "../../pipeline.js";
 import type { Settings } from "../../config.js";
 
@@ -111,6 +112,25 @@ describe("OpsActionService.prepareRequest", () => {
     const prepared = await (service as unknown as { prepareRequest: (a: string, i: unknown) => Promise<{ limit: number }> })
       .prepareRequest("collect-topic", { topicId: "t1", providers: ["steam"], limit: 999 });
     expect(prepared.limit).toBe(25);
+  });
+});
+
+describe("providersWithEnvState", () => {
+  const originalYoutubeKey = process.env.YOUTUBE_API_KEY;
+
+  afterEach(() => {
+    if (originalYoutubeKey === undefined) {
+      delete process.env.YOUTUBE_API_KEY;
+    } else {
+      process.env.YOUTUBE_API_KEY = originalYoutubeKey;
+    }
+  });
+
+  it("marks YouTube ready when the API key is configured", () => {
+    process.env.YOUTUBE_API_KEY = "test-key";
+    const youtube = providersWithEnvState().find((provider) => provider.id === "youtube");
+    expect(youtube?.envState).toBe("ready");
+    expect(youtube?.status).toBe("ready");
   });
 });
 
