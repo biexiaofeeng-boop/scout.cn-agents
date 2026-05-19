@@ -12,14 +12,13 @@ export function renderOpsPage(overview: OpsOverview, options: { initialTab?: str
 </head>
 <body>
   <main class="page">
-    <section class="hero">
+    <section class="hero compact">
       <div>
-        <p class="eyebrow">Scout Intelligence Agents</p>
-        <h1>Ops Console</h1>
-        <p class="lede">Topic governance, scheduled collection, and reviewed handoff for game-material intelligence.</p>
+        <h1>Scout Ops Console</h1>
+        <p class="lede muted">Topic governance · scheduled collection · reviewed handoff</p>
       </div>
       <div class="hero-actions">
-        <a class="pill" href="/ops/overview.json">Open JSON</a>
+        <a class="pill" href="/ops/overview.json">JSON</a>
       </div>
     </section>
 
@@ -42,13 +41,19 @@ export function renderOpsPage(overview: OpsOverview, options: { initialTab?: str
         ${renderOpsActions(overview)}
       </section>
       <section class="panel">
-        <div class="panel-head"><h2>Active Schedules</h2><span>${overview.schedules.length} total, ${overview.summary.activeScheduleCount} active</span></div>
-        ${renderSchedules(overview)}
-      </section>
-      <section class="panel">
-        <div class="panel-head"><h2>Recent Runs</h2><span>${overview.recentOpsRuns.length} rows</span></div>
-        ${renderOpsRuns(overview)}
-        <div id="ops-cleanup-result" class="empty" style="margin-top:12px">Cleanup and retry results appear here.</div>
+        <div class="panel-head">
+          <div class="sub-tabs" data-subtabs="collection-history">
+            <button type="button" class="sub-tab active" data-subtab="runs">Recent Runs <span class="badge">${overview.recentOpsRuns.length}</span></button>
+            <button type="button" class="sub-tab" data-subtab="schedules">Schedules <span class="badge">${overview.summary.activeScheduleCount}</span></button>
+          </div>
+        </div>
+        <div data-subtab-body="runs">
+          ${renderOpsRuns(overview)}
+          <div id="ops-cleanup-result" class="empty" style="margin-top:12px">Cleanup and retry results appear here.</div>
+        </div>
+        <div data-subtab-body="schedules" class="hidden">
+          ${renderSchedules(overview)}
+        </div>
       </section>
     </section>
 
@@ -155,48 +160,54 @@ function renderOpsActions(overview: OpsOverview): string {
   const activeTopics = overview.topics.filter((topic) => topic.status === "active");
   const providers = overview.providers.filter((provider) => collectable.has(provider.id));
   const initialTopic = activeTopics[0];
+  const initialTopicCollectable = initialTopic ? initialTopic.dataSources.filter((d) => collectable.has(d)) : [];
+  // Group topics by vertical for optgroup rendering
+  const groups = new Map<string, typeof activeTopics>();
+  for (const t of activeTopics) {
+    const key = t.vertical || "(no vertical)";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(t);
+  }
+  const topicOptions = [...groups.entries()].map(([vertical, ts]) => {
+    return `<optgroup label="${h(vertical)}">` + ts.map((topic) => {
+      const collectableSources = topic.dataSources.filter((d) => collectable.has(d));
+      const label = topic.projectId ? `${topic.name} · ${topic.projectId}` : topic.name;
+      return `<option value="${h(topic.id)}" data-query="${h(topic.name)}" data-project="${h(topic.projectId)}" data-sources='${h(JSON.stringify(topic.dataSources))}' data-collectable='${h(JSON.stringify(collectableSources))}'>${h(label)}</option>`;
+    }).join("") + `</optgroup>`;
+  }).join("");
   return `<div class="ops-actions">
     <form id="ops-run-form" data-prev-query="${h(initialTopic?.name || "")}">
       <div class="form-row">
         <label>Mode
           <select name="mode">
-            <option value="oneshot" selected>One-shot (run now)</option>
-            <option value="recurring">Recurring (schedule)</option>
+            <option value="oneshot" selected>Run now</option>
+            <option value="dryrun">Dry run (no API)</option>
+            <option value="recurring">Schedule recurring</option>
           </select>
-        </label>
-        <label>Action
-          <select name="action">
-            <option value="collect-and-normalize-topic" selected>collect-and-normalize</option>
-            <option value="collect-topic">collect</option>
-            <option value="normalize-topic">normalize</option>
-          </select>
+          <small class="muted">What kind of execution this is.</small>
         </label>
         <label>Topic
-          <select name="topicId">
-            ${activeTopics.map((topic) => `<option value="${h(topic.id)}" data-query="${h(topic.name)}" data-project="${h(topic.projectId)}" data-sources='${h(JSON.stringify(topic.dataSources))}'>${h(topic.name)} / ${h(topic.id)}</option>`).join("")}
-          </select>
+          <select name="topicId">${topicOptions}</select>
+          <small class="muted">A saved keyword set. Pick what to collect.</small>
         </label>
       </div>
-      <div class="provider-checks">
-        ${providers.map((provider) => {
-          const missing = provider.envState === "missing";
-          const disabled = missing ? "disabled" : "";
-          const initialChecked = !missing && (initialTopic?.dataSources.includes(provider.id) ?? false);
-          return `<label class="check ${missing ? "disabled" : ""}">
-            <input type="checkbox" name="providers" value="${h(provider.id)}" ${initialChecked ? "checked" : ""} ${disabled} />
-            <span>${h(provider.id)}</span>
-            ${missing ? `<small>missing env</small>` : ""}
-          </label>`;
-        }).join("")}
-      </div>
-      <div class="form-row">
-        <label>Query (optional)
-          <input name="query" value="${h(initialTopic?.name || "")}" placeholder="defaults to topic name" />
-        </label>
-        <label>Limit
-          <input name="limit" type="number" min="1" max="25" value="10" />
-          <small class="muted">max 25 per run</small>
-        </label>
+      <div>
+        <label class="muted" style="display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;font-size:12px">Channels</label>
+        <div class="provider-checks">
+          ${providers.map((provider) => {
+            const missing = provider.envState === "missing";
+            const initialChecked = !missing && (initialTopic?.dataSources.includes(provider.id) ?? false);
+            const initialDisabled = missing || !(initialTopic?.dataSources.includes(provider.id) ?? false);
+            return `<label class="check ${initialDisabled ? "disabled" : ""}" data-provider-row="${h(provider.id)}">
+              <input type="checkbox" name="providers" value="${h(provider.id)}" ${initialChecked ? "checked" : ""} ${initialDisabled ? "disabled" : ""} />
+              <span>${h(provider.id)}</span>
+              ${missing ? `<small>missing env</small>` : ""}
+            </label>`;
+          }).join("")}
+        </div>
+        <div id="run-form-warning" class="empty warn" style="display:${initialTopicCollectable.length === 0 ? "block" : "none"};margin-top:10px">
+          This topic uses providers (${h((initialTopic?.dataSources || []).join(", "))}) that aren't enabled for Ops Console runs. Mediacrawler/wechat topics still need backend work — see Topic page.
+        </div>
       </div>
       <div class="form-row" data-mode-block="recurring" style="display:none">
         <label>Frequency
@@ -228,27 +239,50 @@ function renderOpsActions(overview: OpsOverview): string {
           <input name="timezone" value="Asia/Shanghai" />
         </label>
       </div>
-      <div class="form-row" data-mode-block="oneshot">
-        <label>Steam appId
-          <input name="appId" placeholder="optional, for app reviews" />
-        </label>
-        <label>Subreddit
-          <input name="subreddit" placeholder="optional, e.g. gamedev" />
-        </label>
-        <label>GameLens gameIds
-          <input name="gameIds" placeholder="optional comma list" />
-        </label>
-      </div>
-      <div class="form-row">
-        <label class="check"><input type="checkbox" name="dryRun" /> <span>dry-run</span></label>
-        <label class="check" data-mode-block="oneshot"><input type="checkbox" name="includeDryRun" /> <span>include dry-run in normalize</span></label>
-      </div>
+      <details style="margin-top:6px">
+        <summary class="muted">Advanced</summary>
+        <div style="display:grid;gap:12px;margin-top:12px">
+          <div class="form-row">
+            <label>Action
+              <select name="action">
+                <option value="collect-and-normalize-topic" selected>collect + normalize</option>
+                <option value="collect-topic">collect only</option>
+                <option value="normalize-topic">normalize only</option>
+              </select>
+              <small class="muted">Default fetches and normalizes in one go. Pick "normalize only" to re-process existing raw files.</small>
+            </label>
+            <label>Keywords
+              <input name="query" value="${h(initialTopic?.name || "")}" placeholder="defaults to topic name" />
+              <small class="muted">Search string sent to each channel. Defaults to topic name — override for a one-off variant.</small>
+            </label>
+            <label>Per-run limit
+              <input name="limit" type="number" min="1" max="25" value="10" />
+              <small class="muted">Results per channel (1–25).</small>
+            </label>
+          </div>
+          <div class="form-row">
+            <label data-channel-field="steam" style="display:none">Steam app ID
+              <input name="appId" placeholder="numeric, e.g. 730" />
+              <small class="muted">Pull this app's reviews instead of store search.</small>
+            </label>
+            <label data-channel-field="reddit" style="display:none">Subreddit
+              <input name="subreddit" placeholder="e.g. gamedev" />
+              <small class="muted">Restrict to one sub. No "r/" prefix.</small>
+            </label>
+            <label>GameLens gameIds
+              <input name="gameIds" placeholder="optional comma list" />
+              <small class="muted">Filter normalized rows by gameId. Used during normalize.</small>
+            </label>
+          </div>
+        </div>
+      </details>
       <div class="hero-actions inline">
-        <button type="button" data-run-mode="oneshot">Run Now</button>
-        <button type="button" data-run-mode="recurring" style="display:none">Save Schedule</button>
+        <button type="button" data-run-mode="oneshot">Run now</button>
+        <button type="button" data-run-mode="dryrun" style="display:none">Run dry</button>
+        <button type="button" data-run-mode="recurring" style="display:none">Save schedule</button>
       </div>
     </form>
-    <div id="ops-action-result" class="empty">Pick mode + topic, then run or save as a schedule. Results persist under ${h(overview.runtimeRoot)}/runs.</div>
+    <div id="ops-action-result" class="empty">Pick mode + topic + channels, then run. Results persist under ${h(overview.runtimeRoot)}/runs.</div>
   </div>`;
 }
 
@@ -382,8 +416,15 @@ function renderOpsRuns(overview: OpsOverview): string {
   for (const s of overview.schedules) {
     if (s.lastRunId) originMap.set(s.lastRunId, s.id);
   }
+  const topicById = new Map(overview.topics.map((t) => [t.id, t]));
   const topicSet = new Set(overview.recentOpsRuns.map((r) => r.topicId));
   const actionSet = new Set(overview.recentOpsRuns.map((r) => r.action));
+  const verticalSet = new Set<string>();
+  const projectSet = new Set<string>();
+  overview.recentOpsRuns.forEach((r) => {
+    if (r.vertical) verticalSet.add(r.vertical);
+    if (r.projectId) projectSet.add(r.projectId);
+  });
   const filtersBar = `<div class="hero-actions inline">
       <select data-runs-filter="status" class="runs-filter">
         <option value="">all status</option>
@@ -400,6 +441,14 @@ function renderOpsRuns(overview: OpsOverview): string {
         <option value="">all origins</option>
         <option value="manual">manual</option>
         <option value="schedule">schedule</option>
+      </select>
+      <select data-runs-filter="vertical" class="runs-filter">
+        <option value="">all verticals</option>
+        ${[...verticalSet].map((v) => `<option value="${h(v)}">${h(v)}</option>`).join("")}
+      </select>
+      <select data-runs-filter="project" class="runs-filter">
+        <option value="">all projects</option>
+        ${[...projectSet].map((p) => `<option value="${h(p)}">${h(p)}</option>`).join("")}
       </select>
       <select data-runs-filter="topic" class="runs-filter">
         <option value="">all topics</option>
@@ -420,13 +469,16 @@ function renderOpsRuns(overview: OpsOverview): string {
     <tbody>${overview.recentOpsRuns.map((run) => {
       const origin = originMap.get(run.runId);
       const originLabel = origin ? "schedule" : "manual";
+      const topic = topicById.get(run.topicId);
+      const project = run.projectId || topic?.projectId || "";
+      const vertical = run.vertical || topic?.vertical || "";
       const when = run.endedAt || run.startedAt;
-      return `<tr class="clickable" data-run-drawer="${h(run.runId)}" data-run-status="${h(run.status)}" data-run-action="${h(run.action)}" data-run-origin="${originLabel}" data-run-topic="${h(run.topicId)}">
+      return `<tr class="clickable" data-run-drawer="${h(run.runId)}" data-run-status="${h(run.status)}" data-run-action="${h(run.action)}" data-run-origin="${originLabel}" data-run-topic="${h(run.topicId)}" data-run-vertical="${h(vertical)}" data-run-project="${h(project)}">
       <td class="muted" title="${h(when)}">${h(relativeTime(when))}</td>
       <td><span class="mono" title="${h(run.runId)}">${h(shortenId(run.runId))}</span></td>
       <td>${tag(run.action)} <span class="muted">· ${originLabel}${origin ? ` ${h(shortenId(origin))}` : ""}</span></td>
       <td>${tag(run.status)}</td>
-      <td><span class="mono">${h(run.topicId)}</span></td>
+      <td><span class="mono">${h(run.topicId)}</span>${project ? `<div class="muted">${h(project)}</div>` : ""}</td>
       <td>${run.rawRecordCount} raw / ${run.normalizedEvidenceCount} ev</td>
     </tr>`;
     }).join("")}</tbody>
@@ -1030,6 +1082,46 @@ function clientScript(): string {
         const modeSelect = form.querySelector("select[name=mode]");
         const frequencySelect = form.querySelector("select[name=frequency]");
         const topicSelect = form.querySelector("select[name=topicId]");
+        const warningEl = document.getElementById("run-form-warning");
+
+        const refreshChannels = () => {
+          const option = topicSelect?.selectedOptions[0];
+          let sources = [];
+          let collectableSources = [];
+          try { sources = JSON.parse(option?.dataset?.sources || "[]"); } catch (_) {}
+          try { collectableSources = JSON.parse(option?.dataset?.collectable || "[]"); } catch (_) {}
+          const sourcesSet = new Set(sources);
+          form.querySelectorAll("label[data-provider-row]").forEach((row) => {
+            const pid = row.getAttribute("data-provider-row");
+            const checkbox = row.querySelector("input[type=checkbox]");
+            const inSources = sourcesSet.has(pid);
+            // missing-env still wins over inclusion
+            const missingEnv = row.classList.contains("disabled") && checkbox?.disabled && row.querySelector("small")?.textContent === "missing env";
+            row.classList.toggle("disabled", !inSources || missingEnv);
+            if (checkbox) {
+              checkbox.disabled = !inSources || missingEnv;
+              checkbox.checked = inSources && !missingEnv;
+            }
+          });
+          // Toggle channel-specific advanced fields based on what's checked
+          form.querySelectorAll("[data-channel-field]").forEach((field) => {
+            const pid = field.getAttribute("data-channel-field");
+            const checkbox = form.querySelector("input[name=providers][value='" + pid + "']");
+            field.style.display = (checkbox && !checkbox.disabled && checkbox.checked) ? "" : "none";
+          });
+          // Warn + disable Run buttons when no collectable provider
+          const hasCollectable = collectableSources.length > 0;
+          if (warningEl) {
+            warningEl.style.display = hasCollectable ? "none" : "block";
+            if (!hasCollectable) {
+              warningEl.textContent = "This topic uses providers (" + (sources.join(", ") || "none") + ") that aren't enabled for Ops Console runs. Mediacrawler/wechat topics still need backend work — see Topic detail page.";
+            }
+          }
+          form.querySelectorAll("[data-run-mode]").forEach((btn) => {
+            btn.disabled = !hasCollectable;
+            btn.title = hasCollectable ? "" : "No collectable channels for this topic";
+          });
+        };
 
         const updateModeBlocks = () => {
           const mode = modeSelect?.value || "oneshot";
@@ -1058,11 +1150,15 @@ function clientScript(): string {
             queryInput.value = nextTopicQuery;
           }
           form.dataset.prevQuery = nextTopicQuery;
-          updateProviderDefaults(option, form);
+          refreshChannels();
+        });
+        form.querySelectorAll("input[name=providers]").forEach((cb) => {
+          cb.addEventListener("change", refreshChannels);
         });
 
         updateModeBlocks();
         updateFrequencyFields();
+        refreshChannels();
       }
 
       document.querySelectorAll("[data-run-mode]").forEach((button) => {
@@ -1078,13 +1174,13 @@ function clientScript(): string {
           const providers = data.getAll("providers").map(String);
           const query = String(data.get("query") || "").trim();
           const limit = Number(data.get("limit") || 10);
-          const dryRun = data.get("dryRun") === "on";
+          const dryRun = mode === "dryrun";
           resultBox.className = "empty";
-          if (mode === "oneshot") {
-            resultBox.textContent = "Running " + action + " ...";
+          if (mode === "oneshot" || mode === "dryrun") {
+            resultBox.textContent = (dryRun ? "Dry-running " : "Running ") + action + " ...";
             const payload = {
               topicId, query, limit, providers, dryRun,
-              includeDryRun: data.get("includeDryRun") === "on",
+              includeDryRun: dryRun,
               appId: String(data.get("appId") || ""),
               subreddit: String(data.get("subreddit") || ""),
               gameIds: String(data.get("gameIds") || ""),
@@ -1114,7 +1210,7 @@ function clientScript(): string {
               projectId: String(topicOption?.dataset?.project || ""),
               providers, action,
               query: query || undefined,
-              limit, dryRun,
+              limit, dryRun: false,
               cron: buildCron(formEl),
               timezone: String(data.get("timezone") || "Asia/Shanghai"),
             };
@@ -1290,6 +1386,20 @@ function clientScript(): string {
       // Apply default filter (status=active by default in select)
       if (topicsFilterEls.length > 0) applyTopicsFilters();
 
+      document.querySelectorAll("[data-subtabs]").forEach((nav) => {
+        const groupName = nav.getAttribute("data-subtabs");
+        nav.querySelectorAll("[data-subtab]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const target = btn.getAttribute("data-subtab");
+            nav.querySelectorAll("[data-subtab]").forEach((b) => b.classList.toggle("active", b === btn));
+            const container = nav.closest("section.panel") || document;
+            container.querySelectorAll("[data-subtab-body]").forEach((body) => {
+              body.classList.toggle("hidden", body.getAttribute("data-subtab-body") !== target);
+            });
+          });
+        });
+      });
+
       document.querySelectorAll("[data-topic-runnow]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const raw = btn.getAttribute("data-topic-runnow") || "{}";
@@ -1380,18 +1490,24 @@ function clientScript(): string {
 
 function renderSchedules(overview: OpsOverview): string {
   const schedules = overview.schedules;
+  const topicById = new Map(overview.topics.map((t) => [t.id, t]));
   return `<div class="ops-actions">
-    ${schedules.length === 0 ? `<div class="empty">No schedules yet. Use the New Run form above (set Mode to "Recurring") to create one.</div>` : `<table>
-      <thead><tr><th>Schedule</th><th>Action</th><th>Topic / Providers</th><th>Frequency</th><th>Next Run</th><th>Last Run</th><th>Status</th></tr></thead>
-      <tbody>${schedules.map((s) => `<tr class="clickable" data-schedule-drawer="${h(s.id)}">
-        <td><b class="mono" title="${h(s.id)}">${h(shortenId(s.id))}</b><div class="muted">created ${h(relativeTime(s.createdAt))}</div></td>
-        <td>${tag(s.action)}${s.dryRun ? tag("dry-run") : ""}</td>
-        <td><span class="mono">${h(s.topicId)}</span><div class="muted">${s.providers.map(h).join(", ")}</div></td>
-        <td title="${h(s.cron)}">${h(humanizeCron(s.cron, s.timezone))}</td>
-        <td class="muted" title="${h(s.nextRunAt)}">${h(relativeTime(s.nextRunAt))}</td>
-        <td>${s.lastRunAt ? `${s.lastRunStatus ? tag(s.lastRunStatus) : ""}<div class="muted" title="${h(s.lastRunAt)}">${h(relativeTime(s.lastRunAt))}</div>` : `<span class="muted">never</span>`}</td>
-        <td>${tag(s.status)}</td>
-      </tr>`).join("")}</tbody>
+    ${schedules.length === 0 ? `<div class="empty">No schedules yet. Use the New Run form above (set Mode to "Schedule recurring") to create one.</div>` : `<table>
+      <thead><tr><th>Schedule</th><th>Project</th><th>Action</th><th>Topic / Channels</th><th>Frequency</th><th>Next Run</th><th>Last Run</th><th>Status</th></tr></thead>
+      <tbody>${schedules.map((s) => {
+        const topic = topicById.get(s.topicId);
+        const projectLabel = s.projectId || topic?.projectId || "(no project)";
+        return `<tr class="clickable" data-schedule-drawer="${h(s.id)}">
+          <td><b class="mono" title="${h(s.id)}">${h(shortenId(s.id))}</b><div class="muted">created ${h(relativeTime(s.createdAt))}</div></td>
+          <td>${projectLabel === "(no project)" ? `<span class="muted">${h(projectLabel)}</span>` : tag(projectLabel)}</td>
+          <td>${tag(s.action)}${s.dryRun ? tag("dry-run") : ""}</td>
+          <td><span class="mono">${h(s.topicId)}</span><div class="muted">${s.providers.map(h).join(", ")}</div></td>
+          <td title="${h(s.cron)}">${h(humanizeCron(s.cron, s.timezone))}</td>
+          <td class="muted" title="${h(s.nextRunAt)}">${h(relativeTime(s.nextRunAt))}</td>
+          <td>${s.lastRunAt ? `${s.lastRunStatus ? tag(s.lastRunStatus) : ""}<div class="muted" title="${h(s.lastRunAt)}">${h(relativeTime(s.lastRunAt))}</div>` : `<span class="muted">never</span>`}</td>
+          <td>${tag(s.status)}</td>
+        </tr>`;
+      }).join("")}</tbody>
     </table>`}
     <div id="ops-schedule-result" class="empty" style="margin-top:12px">Click a row to open schedule controls.</div>
   </div>`;
@@ -1799,8 +1915,10 @@ function styles(): string {
     :root { --bg:#101820; --paper:#f7f0df; --card:#fffaf0; --ink:#15211c; --muted:#67716d; --line:#d8ccb6; --accent:#c26235; --ok:#266f52; --warn:#a36400; --bad:#a73838; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     * { box-sizing: border-box; }
     body { margin:0; background: radial-gradient(circle at 10% 0%, #244034 0, transparent 28%), linear-gradient(135deg, #101820, #1d2d28 52%, #3a2b20); color:var(--ink); font-family: Iowan Old Style, Palatino Linotype, Georgia, serif; }
-    .page { max-width: 1480px; margin: 0 auto; padding: 28px 20px 64px; }
-    .hero { display:flex; justify-content:space-between; gap:20px; align-items:flex-end; color:var(--paper); padding:28px 4px 24px; }
+    .page { max-width: 1480px; margin: 0 auto; padding: 16px 20px 64px; }
+    .hero { display:flex; justify-content:space-between; gap:20px; align-items:center; color:var(--paper); padding:14px 4px 12px; }
+    .hero.compact h1 { font-size:22px; letter-spacing:-.01em; margin:0; }
+    .hero.compact .lede { font-size:13px; margin:2px 0 0; color:#c9bea8 !important; }
     .eyebrow { margin:0 0 8px; color:#e1b083; text-transform:uppercase; letter-spacing:.12em; font-size:12px; }
     h1 { margin:0; font-size:54px; line-height:.95; letter-spacing:-.04em; }
     h2 { margin:0; font-size:20px; }
@@ -1869,6 +1987,10 @@ function styles(): string {
     .step-strip .step.active { background:var(--accent); }
     .step-strip .step.done { background:var(--ok); }
     .step-strip .step.error { background:var(--bad); }
+    .sub-tabs { display:flex; gap:4px; }
+    .sub-tabs .sub-tab { background:transparent; border:1px solid transparent; border-bottom:2px solid transparent; padding:6px 12px; cursor:pointer; font:inherit; font-size:13px; color:var(--muted); border-radius:6px 6px 0 0; }
+    .sub-tabs .sub-tab.active { border-bottom-color:var(--accent); color:var(--ink); font-weight:600; }
+    .sub-tabs .badge { display:inline-block; padding:1px 6px; margin-left:4px; border-radius:8px; background:rgba(0,0,0,.08); font-size:11px; }
     .dashboard-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .needs-attention, .activity-timeline { margin:0; padding-left:18px; line-height:1.7; }
     .needs-attention li, .activity-timeline li { margin:6px 0; }
