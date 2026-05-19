@@ -36,7 +36,7 @@ export const OPS_PROVIDERS: Array<Omit<OpsProvider, "envState">> = [
     status: "ready",
     verticals: ["game", "ai", "consumer", "finance"],
     envRequired: [],
-    notes: "CN social crawler; account/session and anti-bot risk must be operated manually.",
+    notes: "CN social platforms (XHS / Douyin / Bilibili / Weibo / Zhihu / Tieba / Kuaishou). Runs externally via its own FastAPI on :18081 — start the mediacrawler service first.",
   },
   {
     id: "wechat-spider",
@@ -45,7 +45,7 @@ export const OPS_PROVIDERS: Array<Omit<OpsProvider, "envState">> = [
     status: "ready",
     verticals: ["game", "ai", "consumer", "finance"],
     envRequired: ["WECHAT_MYSQL_PASSWD"],
-    notes: "Operational through Docker stack; physical move under scout-vendor is deferred.",
+    notes: "WeChat Official Account content. Runs externally via the docker stack; data lands in mariadb.",
   },
 ];
 

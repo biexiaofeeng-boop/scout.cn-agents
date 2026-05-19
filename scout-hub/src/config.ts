@@ -1,5 +1,31 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import fs from "node:fs";
 import path from "node:path";
+
+// Resolve the canonical env file with a clear precedence:
+// 1. process.env.SCOUT_ENV_FILE — explicit override
+// 2. scout-hub/.env — local developer override
+// 3. ../scout-deploy/env/scout-hub.env — single source of truth used by docker compose
+//
+// Each candidate is loaded if it exists. Later ones do not overwrite already-set keys,
+// so explicit overrides win.
+function loadEnvFiles(cwd: string): void {
+  const candidates: string[] = [];
+  if (process.env.SCOUT_ENV_FILE) candidates.push(path.resolve(process.env.SCOUT_ENV_FILE));
+  candidates.push(path.resolve(cwd, ".env"));
+  candidates.push(path.resolve(cwd, "..", "scout-deploy", "env", "scout-hub.env"));
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        dotenv.config({ path: candidate, override: false });
+      }
+    } catch {
+      // ignore unreadable env files; preserve existing process.env
+    }
+  }
+}
+
+loadEnvFiles(process.cwd());
 
 export type Settings = {
   projectRoot: string;
@@ -19,6 +45,7 @@ export type Settings = {
   opsRunRetentionMax: number;
   monitorHost: string;
   monitorPort: number;
+  mediaCrawlerApiUrl: string;
   wechatMysqlHost: string;
   wechatMysqlPort: number;
   wechatMysqlDb: string;
@@ -40,7 +67,7 @@ function toInt(v: string | undefined, defaultValue: number): number {
 export function loadSettings(cwd: string = process.cwd()): Settings {
   const projectRoot = process.env.SCOUT_PROJECT_ROOT || path.resolve(cwd, "..");
   const stateDir = path.resolve(process.env.SCOUT_STATE_DIR || path.join(projectRoot, "scout-hub", "state"));
-  const runtimeRoot = path.resolve(process.env.SCOUT_RUNTIME_ROOT || "/Users/sourcefire/1data/scout");
+  const runtimeRoot = path.resolve(process.env.SCOUT_RUNTIME_ROOT || path.join(projectRoot, "..", "scout"));
   const vendorRoot = path.resolve(process.env.SCOUT_VENDOR_ROOT || path.join(projectRoot, "scout-vendor"));
 
   const mediaCrawlerRoot = path.resolve(
@@ -66,6 +93,7 @@ export function loadSettings(cwd: string = process.cwd()): Settings {
     opsRunRetentionMax: toInt(process.env.SCOUT_OPS_RUN_RETENTION_MAX, 300),
     monitorHost: process.env.SCOUT_MONITOR_HOST || "127.0.0.1",
     monitorPort: toInt(process.env.SCOUT_MONITOR_PORT, 18080),
+    mediaCrawlerApiUrl: process.env.MEDIACRAWLER_API_URL || "http://127.0.0.1:18081",
     wechatMysqlHost: process.env.WECHAT_MYSQL_HOST || "127.0.0.1",
     wechatMysqlPort: toInt(process.env.WECHAT_MYSQL_PORT, 3306),
     wechatMysqlDb: process.env.WECHAT_MYSQL_DB || "test",

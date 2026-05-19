@@ -169,14 +169,28 @@ function renderOpsActions(overview: OpsOverview): string {
     groups.get(key)!.push(t);
   }
   const topicOptions = [...groups.entries()].map(([vertical, ts]) => {
-    return `<optgroup label="${h(vertical)}">` + ts.map((topic) => {
+    return `<optgroup label="${h(vertical)}" data-vertical-group="${h(vertical)}">` + ts.map((topic) => {
       const collectableSources = topic.dataSources.filter((d) => collectable.has(d));
       const label = topic.projectId ? `${topic.name} · ${topic.projectId}` : topic.name;
-      return `<option value="${h(topic.id)}" data-query="${h(topic.name)}" data-project="${h(topic.projectId)}" data-sources='${h(JSON.stringify(topic.dataSources))}' data-collectable='${h(JSON.stringify(collectableSources))}'>${h(label)}</option>`;
+      const searchKey = `${topic.id} ${topic.name} ${topic.description || ""}`.toLowerCase();
+      return `<option value="${h(topic.id)}" data-query="${h(topic.name)}" data-project="${h(topic.projectId)}" data-vertical="${h(topic.vertical || "")}" data-projectid="${h(topic.projectId || "__none__")}" data-search="${h(searchKey)}" data-sources='${h(JSON.stringify(topic.dataSources))}' data-collectable='${h(JSON.stringify(collectableSources))}'>${h(label)}</option>`;
     }).join("") + `</optgroup>`;
   }).join("");
   return `<div class="ops-actions">
     <form id="ops-run-form" data-prev-query="${h(initialTopic?.name || "")}">
+      <div class="hero-actions inline" style="margin-bottom:8px">
+        <select data-form-filter="vertical" class="runs-filter">
+          <option value="">all verticals</option>
+          ${[...new Set(activeTopics.map((t) => t.vertical).filter(Boolean))].map((v) => `<option value="${h(v)}">${h(v)}</option>`).join("")}
+        </select>
+        <select data-form-filter="projectId" class="runs-filter">
+          <option value="">all projects</option>
+          ${[...new Set(activeTopics.map((t) => t.projectId).filter(Boolean))].map((p) => `<option value="${h(p)}">${h(p)}</option>`).join("")}
+          <option value="__none__">(no project)</option>
+        </select>
+        <input type="search" data-form-filter="search" class="runs-filter" placeholder="search topic" style="min-width:180px" />
+        <span class="muted" data-form-filter-count style="align-self:center">— of ${activeTopics.length}</span>
+      </div>
       <div class="form-row">
         <label>Mode
           <select name="mode">
@@ -206,7 +220,7 @@ function renderOpsActions(overview: OpsOverview): string {
           }).join("")}
         </div>
         <div id="run-form-warning" class="empty warn" style="display:${initialTopicCollectable.length === 0 ? "block" : "none"};margin-top:10px">
-          This topic uses providers (${h((initialTopic?.dataSources || []).join(", "))}) that aren't enabled for Ops Console runs. Mediacrawler/wechat topics still need backend work — see Topic page.
+          This topic uses ${h((initialTopic?.dataSources || []).join(", "))} which runs as an external service (mediacrawler / wechat-spider). Ops Console one-off / scheduled runs only cover steam / youtube / reddit today. See Topic detail page for status.
         </div>
       </div>
       <div class="form-row" data-mode-block="recurring" style="display:none">
@@ -1084,6 +1098,52 @@ function clientScript(): string {
         const topicSelect = form.querySelector("select[name=topicId]");
         const warningEl = document.getElementById("run-form-warning");
 
+        // Topic filter bar: narrows the topic select options
+        const filterEls = form.querySelectorAll("[data-form-filter]");
+        const countEl = form.querySelector("[data-form-filter-count]");
+        const applyFormFilters = () => {
+          if (!topicSelect) return;
+          const filters = { vertical: "", projectId: "", search: "" };
+          filterEls.forEach((el) => {
+            const key = el.getAttribute("data-form-filter");
+            if (key) filters[key] = (el.value || "").toLowerCase().trim();
+          });
+          let visibleCount = 0;
+          let total = 0;
+          topicSelect.querySelectorAll("option").forEach((opt) => {
+            total += 1;
+            const v = (opt.dataset?.vertical || "").toLowerCase();
+            const p = (opt.dataset?.projectid || "").toLowerCase();
+            const s = opt.dataset?.search || "";
+            let visible = true;
+            if (filters.vertical && v !== filters.vertical) visible = false;
+            if (filters.projectId && p !== filters.projectId) visible = false;
+            if (filters.search && !s.includes(filters.search)) visible = false;
+            opt.hidden = !visible;
+            opt.disabled = !visible;
+            if (visible) visibleCount += 1;
+          });
+          // Hide optgroups that contain no visible options
+          topicSelect.querySelectorAll("optgroup").forEach((og) => {
+            const anyVisible = Array.from(og.querySelectorAll("option")).some((o) => !o.hidden);
+            og.hidden = !anyVisible;
+          });
+          if (countEl) countEl.textContent = visibleCount + " of " + total;
+          // If currently selected option got hidden, switch to the first visible one
+          if (topicSelect.selectedOptions[0]?.hidden) {
+            const firstVisible = topicSelect.querySelector("option:not([hidden])");
+            if (firstVisible) {
+              topicSelect.value = firstVisible.value;
+              topicSelect.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+          }
+        };
+        filterEls.forEach((el) => {
+          const evt = el.tagName.toLowerCase() === "input" ? "input" : "change";
+          el.addEventListener(evt, applyFormFilters);
+        });
+        applyFormFilters();
+
         const refreshChannels = () => {
           const option = topicSelect?.selectedOptions[0];
           let sources = [];
@@ -1114,7 +1174,7 @@ function clientScript(): string {
           if (warningEl) {
             warningEl.style.display = hasCollectable ? "none" : "block";
             if (!hasCollectable) {
-              warningEl.textContent = "This topic uses providers (" + (sources.join(", ") || "none") + ") that aren't enabled for Ops Console runs. Mediacrawler/wechat topics still need backend work — see Topic detail page.";
+              warningEl.textContent = "This topic uses " + (sources.join(", ") || "none") + " which runs as an external service (mediacrawler / wechat-spider). Ops Console one-off / scheduled runs only cover steam / youtube / reddit today.";
             }
           }
           form.querySelectorAll("[data-run-mode]").forEach((btn) => {
@@ -1603,9 +1663,11 @@ export function renderTopicDetailPage(topic: OpsOverview["topics"][number], over
   const channels = topic.dataSources.map((src) => {
     const provider = overview.providers.find((p) => p.id === src);
     const lastRun = topicRuns.find((r) => r.providers.includes(src));
+    const isCollectable = collectable.has(src);
     return {
       id: src,
-      enabled: collectable.has(src),
+      enabled: isCollectable,
+      external: !isCollectable && provider?.status === "ready",
       envState: provider?.envState || "unknown",
       lastRunStatus: lastRun?.status || "",
       lastRunAt: lastRun?.endedAt || lastRun?.startedAt || "",
