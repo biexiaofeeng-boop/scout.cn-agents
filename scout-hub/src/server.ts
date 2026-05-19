@@ -167,6 +167,15 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
     return renderReviewPreviewPage(preview);
   });
 
+  app.get("/ops/review-queue/:id/preview.json", async (req, reply) => {
+    const preview = await opsReviewService.getPreview((req.params as { id: string }).id);
+    if (!preview) {
+      reply.status(404);
+      return { error: "review_item_not_found" };
+    }
+    return preview;
+  });
+
   app.get("/ops", async (_req, reply) => {
     const overview = await opsService.buildOverview();
     reply.type("text/html; charset=utf-8");
