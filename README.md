@@ -22,7 +22,7 @@ Current priority domains:
 | --- | --- | --- |
 | `scout-vendor/` | Unified data acquisition boundary. Owns first-party provider wrappers and isolated third-party crawler code. | Active. Contains MediaCrawler and Steam/YouTube/Reddit wrappers. |
 | `scout-media-agents/` | TopicOps control plane. Owns topic catalog, seeds, expansion, review, schedule planning, and trend-signal export contracts. | Active TypeScript package. |
-| `scout-hub/` | Aggregation/API/health/metrics boundary for normalized events and pipeline operations. | Active TypeScript service. |
+| `scout-ops/` | Aggregation/API/health/metrics boundary for normalized events and pipeline operations. | Active TypeScript service. |
 | `scout-wchat-agents/` | TypeScript adapter/control-plane work around WeChat collection. | Active adapter package. |
 | `wechat-spider/` | Existing WeChat crawler runtime. | Operational, but not physically moved under `scout-vendor` yet to avoid destabilizing Docker/runtime paths. |
 | `scout-deploy/` | Docker-based local runtime stack and service scripts. | Operational for local MySQL, Redis, hub, scheduler, and WeChat spider. |
@@ -70,7 +70,7 @@ This layer collects data but should not own business analysis logic.
 
 ### 3. Aggregation And Service Operations
 
-Owned mainly by `scout-hub` and `scout-deploy`.
+Owned mainly by `scout-ops` and `scout-deploy`.
 
 - Provide health, metrics, alert, and pipeline status endpoints.
 - Support ingest, idempotency, retry, DLQ, and scheduler operations.

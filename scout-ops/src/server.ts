@@ -99,6 +99,74 @@ export async function startMonitorApi(pipeline: ScoutPipeline, host: string, por
     return item;
   });
 
+  app.post("/ops/mediacrawler/trigger", async (req, reply) => {
+    const body = (req.body || {}) as { platform?: string; keywords?: string; crawlerType?: string; enableComments?: boolean };
+    const platform = String(body.platform || "").trim();
+    const keywords = String(body.keywords || "").trim();
+    const crawlerType = String(body.crawlerType || "search").trim();
+    const supportedPlatforms = ["xhs", "dy", "ks", "bili", "wb", "tieba", "zhihu"];
+    if (!supportedPlatforms.includes(platform)) {
+      reply.status(400);
+      return { error: "unsupported_platform", supported: supportedPlatforms };
+    }
+    if (!keywords) {
+      reply.status(400);
+      return { error: "keywords_required" };
+    }
+    const apiUrl = pipeline.settings.mediaCrawlerApiUrl.replace(/\/$/, "");
+    try {
+      // First: check status. MediaCrawler only allows one task at a time.
+      const statusResp = await fetch(`${apiUrl}/api/crawler/status`, { signal: AbortSignal.timeout(5000) });
+      if (statusResp.ok) {
+        const status = await statusResp.json() as { status?: string };
+        if (status.status === "running" || status.status === "stopping") {
+          reply.status(409);
+          return { error: "mediacrawler_busy", status: status.status, message: "MediaCrawler already has a task in progress" };
+        }
+      }
+      const payload = {
+        platform,
+        login_type: "cookie",
+        crawler_type: crawlerType,
+        keywords,
+        start_page: 1,
+        enable_comments: body.enableComments !== false,
+        enable_sub_comments: false,
+        save_option: "jsonl",
+        cookies: "",
+        headless: false,
+      };
+      const startResp = await fetch(`${apiUrl}/api/crawler/start`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(8000),
+      });
+      const startJson = await startResp.json().catch(() => ({}));
+      if (!startResp.ok) {
+        reply.status(502);
+        return { error: "mediacrawler_start_failed", httpStatus: startResp.status, detail: startJson };
+      }
+      return { ok: true, platform, keywords, crawlerType, mediacrawlerResponse: startJson, note: "Crawler started on MediaCrawler. Watch progress in its webui; once data lands on disk, run Ops Console Collection with provider=mediacrawler to ingest." };
+    } catch (err) {
+      reply.status(502);
+      const message = err instanceof Error ? err.message : String(err);
+      return { error: "mediacrawler_unreachable", message };
+    }
+  });
+
+  app.get("/ops/mediacrawler/status", async () => {
+    const apiUrl = pipeline.settings.mediaCrawlerApiUrl.replace(/\/$/, "");
+    try {
+      const response = await fetch(`${apiUrl}/api/crawler/status`, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) return { ok: false, httpStatus: response.status };
+      const data = await response.json();
+      return { ok: true, ...(data as Record<string, unknown>) };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
   app.post("/ops/providers/:id/test", async (req, reply) => {
     const id = (req.params as { id: string }).id;
     const probes: Record<string, { url: string; requiredEnv?: string; description: string }> = {

@@ -4,8 +4,8 @@ import path from "node:path";
 
 // Resolve the canonical env file with a clear precedence:
 // 1. process.env.SCOUT_ENV_FILE — explicit override
-// 2. scout-hub/.env — local developer override
-// 3. ../scout-deploy/env/scout-hub.env — single source of truth used by docker compose
+// 2. scout-ops/.env — local developer override
+// 3. ../scout-deploy/env/scout-ops.env — single source of truth used by docker compose
 //
 // Each candidate is loaded if it exists. Later ones do not overwrite already-set keys,
 // so explicit overrides win.
@@ -13,7 +13,7 @@ function loadEnvFiles(cwd: string): void {
   const candidates: string[] = [];
   if (process.env.SCOUT_ENV_FILE) candidates.push(path.resolve(process.env.SCOUT_ENV_FILE));
   candidates.push(path.resolve(cwd, ".env"));
-  candidates.push(path.resolve(cwd, "..", "scout-deploy", "env", "scout-hub.env"));
+  candidates.push(path.resolve(cwd, "..", "scout-deploy", "env", "scout-ops.env"));
   for (const candidate of candidates) {
     try {
       if (fs.existsSync(candidate)) {
@@ -67,7 +67,7 @@ function toInt(v: string | undefined, defaultValue: number): number {
 
 export function loadSettings(cwd: string = process.cwd()): Settings {
   const projectRoot = process.env.SCOUT_PROJECT_ROOT || path.resolve(cwd, "..");
-  const stateDir = path.resolve(process.env.SCOUT_STATE_DIR || path.join(projectRoot, "scout-hub", "state"));
+  const stateDir = path.resolve(process.env.SCOUT_STATE_DIR || path.join(projectRoot, "scout-ops", "state"));
   const runtimeRoot = path.resolve(process.env.SCOUT_RUNTIME_ROOT || path.join(projectRoot, "..", "scout"));
   const vendorRoot = path.resolve(process.env.SCOUT_VENDOR_ROOT || path.join(projectRoot, "scout-vendor"));
 

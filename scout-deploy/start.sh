@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DEPLOY_DIR="$ROOT_DIR/scout-deploy"
-HUB_DIR="$ROOT_DIR/scout-hub"
+HUB_DIR="$ROOT_DIR/scout-ops"
 RUNTIME_DIR="$ROOT_DIR/runtime/scout-deploy"
 
 mkdir -p "$RUNTIME_DIR/logs" "$RUNTIME_DIR/pids"
@@ -57,7 +57,7 @@ start_process() {
   fi
 }
 
-load_env "$DEPLOY_DIR/env/scout-hub.env"
+load_env "$DEPLOY_DIR/env/scout-ops.env"
 
 if [ ! -d "$HUB_DIR/node_modules" ]; then
   echo "[ERROR] missing dependencies: $HUB_DIR/node_modules"
@@ -77,5 +77,5 @@ fi
 start_process "scout_hub_api" bash -lc "cd '$HUB_DIR' && exec npx tsx src/cli.ts api --host '$HOST' --port '$PORT'"
 start_process "scout_hub_scheduler" bash -lc "cd '$HUB_DIR' && exec npx tsx src/cli.ts scheduler --interval '$INTERVAL'"
 
-echo "[DONE] started scout-hub services"
+echo "[DONE] started scout-ops services"
 echo "[NEXT] run: $DEPLOY_DIR/status.sh"

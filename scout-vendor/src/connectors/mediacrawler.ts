@@ -22,7 +22,7 @@ const CONTENT_FILE_PATTERN = /^search_contents_\d{4}-\d{2}-\d{2}\.jsonl$/;
  * Unlike steam/reddit/youtube which fetch from a live API, this connector
  * reads from the files MediaCrawler has already written to disk. The
  * operator is expected to drive MediaCrawler separately (via its webui or
- * CLI); scout-hub only normalises the resulting jsonl into the shared
+ * CLI); scout-ops only normalises the resulting jsonl into the shared
  * VendorEvidenceRecord schema so it can go through the review queue.
  *
  * Filtering is by the source_keyword field that MediaCrawler annotates on

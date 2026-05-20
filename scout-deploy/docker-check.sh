@@ -15,15 +15,15 @@ wa(){ warn=$((warn+1)); echo "[WARN] $*"; }
 if command -v docker >/dev/null 2>&1; then ok "docker command exists"; else ng "docker command missing"; fi
 if docker info >/dev/null 2>&1; then ok "docker daemon running"; else ng "docker daemon not running"; fi
 
-for f in "$DEPLOY_DIR/env/scout-hub.env" "$DEPLOY_DIR/env/scout-wchat.env"; do
+for f in "$DEPLOY_DIR/env/scout-ops.env" "$DEPLOY_DIR/env/scout-wchat.env"; do
   if [ -f "$f" ]; then ok "env exists: $f"; else ng "env missing: $f"; fi
 done
 
-if [ -f "$DEPLOY_DIR/env/scout-hub.env" ] && [ -f "$DEPLOY_DIR/env/scout-wchat.env" ]; then
-  hub_pwd=$(awk -F= '/^WECHAT_MYSQL_PASSWD=/{print $2; exit}' "$DEPLOY_DIR/env/scout-hub.env")
+if [ -f "$DEPLOY_DIR/env/scout-ops.env" ] && [ -f "$DEPLOY_DIR/env/scout-wchat.env" ]; then
+  hub_pwd=$(awk -F= '/^WECHAT_MYSQL_PASSWD=/{print $2; exit}' "$DEPLOY_DIR/env/scout-ops.env")
   wc_pwd=$(awk -F= '/^WECHAT_MYSQL_PASSWD=/{print $2; exit}' "$DEPLOY_DIR/env/scout-wchat.env")
   if [ "$hub_pwd" = "$wc_pwd" ] && [ -n "$hub_pwd" ] && ! echo "$hub_pwd" | grep -qi 'CHANGE_ME'; then
-    ok "mysql password aligned between scout-hub and scout-wchat"
+    ok "mysql password aligned between scout-ops and scout-wchat"
   else
     wa "mysql password mismatch or placeholder; edit env files before go-live"
   fi

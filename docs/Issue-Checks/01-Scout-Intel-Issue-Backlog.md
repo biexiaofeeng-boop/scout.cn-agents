@@ -7,7 +7,7 @@
 - `SM1`: `scout-media-agents` 治理数据模型与 registry 最小闭环
 - `SM2`: `scout-media-agents` CLI 审阅/计划/运行可观测入口
 - `SW1`: `scout-wchat-agents` seed 导入与公众号任务联动治理
-- `SH1`: `scout-hub` 运行状态与 export 结果聚合面
+- `SH1`: `scout-ops` 运行状态与 export 结果聚合面
 
 ## P1
 - `SM3`: LLM expansion 接入 topic profile 与证据记录

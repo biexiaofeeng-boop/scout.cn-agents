@@ -78,8 +78,8 @@ GET  /ops/runs/:runId/logs
 
 ## Implementation Notes
 
-- First implementation lives in `scout-hub/src/ops/opsActionService.ts`.
-- `scout-hub` performs topic/provider validation and invokes `scout-vendor/src/cli.ts` with bounded stdout/stderr capture.
+- First implementation lives in `scout-ops/src/ops/opsActionService.ts`.
+- `scout-ops` performs topic/provider validation and invokes `scout-vendor/src/cli.ts` with bounded stdout/stderr capture.
 - Runtime run records are written to `SCOUT_RUNTIME_ROOT/runs/<run-id>/`.
 - Docker mounts the full `scout-vendor` directory read-only so the hub container can call the provider CLI without accepting arbitrary command input.
 - The UI action form is intentionally minimal. It supports provider selection, dry-run, normalize inclusion of dry-run records, optional Steam `appId`, optional Reddit `subreddit`, and optional GameLens `gameIds`.

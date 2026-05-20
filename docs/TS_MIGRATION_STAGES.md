@@ -4,7 +4,7 @@
 
 ## 项目边界
 
-- `scout-hub/`：TS 控制面（统一入湖、调度、监控）
+- `scout-ops/`：TS 控制面（统一入湖、调度、监控）
 - `scout-media-agents/`：MediaCrawler 适配工程
 - `scout-wchat-agents/`：wechat-spider 适配工程
 
@@ -20,14 +20,14 @@
 
 完成标准：
 
-1. `scout-hub` 能执行一次完整 pipeline run。
+1. `scout-ops` 能执行一次完整 pipeline run。
 2. 支持增量游标、去重写入、DLQ 记录。
 3. 对外提供 `/health` `/metrics` `/runs` `/alerts` `/run-once`。
 
 验收命令：
 
 ```bash
-cd /Users/sourcefire/1data/scout-lab/scout-hub
+cd /Users/sourcefire/1data/scout-lab/scout-ops
 npm install
 npm run pipeline:once
 npm run api
@@ -37,8 +37,8 @@ npm run api
 
 完成标准：
 
-1. `scout-vendor/mediacrawler` 数据目录可被 `scout-hub` 增量消费。
-2. `wechat-spider` MySQL 数据可被 `scout-hub` 增量消费。
+1. `scout-vendor/mediacrawler` 数据目录可被 `scout-ops` 增量消费。
+2. `wechat-spider` MySQL 数据可被 `scout-ops` 增量消费。
 3. 失败事件进入 DLQ，不影响主流程持续运行。
 
 验收口径：

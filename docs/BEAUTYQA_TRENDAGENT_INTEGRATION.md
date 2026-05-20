@@ -23,7 +23,7 @@
 ### scout 当前短板
 
 - `scout-media-agents/` 目前只有 health probe
-- `scout-hub/` 当前偏“增量入湖器”，不是完整采集编排器
+- `scout-ops/` 当前偏“增量入湖器”，不是完整采集编排器
 - 缺少 seed / expansion / schedule / governance 的 durable first-party 状态
 
 ### BeautyQA 已经具备的能力
@@ -81,14 +81,14 @@
 - `src/export/`
 - `src/vendor/mediacrawler/`
 
-### 4.2 `scout-hub`
+### 4.2 `scout-ops`
 
 继续保留统一入湖职责，但不再承担媒体平台的精细调度。
 
 建议分工：
 
 - `scout-media-agents`：负责 `seed -> expansion -> schedule -> crawl -> signal export`
-- `scout-hub`：负责 `ingest -> dedup -> alert -> downstream event bus`
+- `scout-ops`：负责 `ingest -> dedup -> alert -> downstream event bus`
 
 ### 4.3 `agents/`
 
@@ -129,7 +129,7 @@
 1. 在 `scout-media-agents` 复刻 BeautyQA 的 first-party runtime model
 2. 继续调用现有 `scout-vendor/mediacrawler/`
 3. 产出通用 `trend_signal` / `intel_signal`
-4. 交给 `scout-hub` 入湖
+4. 交给 `scout-ops` 入湖
 
 优点：
 
@@ -179,7 +179,7 @@
 
 1. `scout-media-agents` 成为通用中文趋势采集编排层
 2. `scout-vendor/mediacrawler/` 仍然是 vendor crawler engine
-3. `scout-hub` 继续做统一入湖与告警
+3. `scout-ops` 继续做统一入湖与告警
 4. `agents/` 基于统一 signal / event 做分析问答
 5. 领域项目如 BeautyQA 只消费 `scout` 产出的通用 signal，而不再自带独立采集控制面
 

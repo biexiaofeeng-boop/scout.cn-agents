@@ -53,7 +53,7 @@ probe() {
   fi
 }
 
-load_env "$DEPLOY_DIR/env/scout-hub.env"
+load_env "$DEPLOY_DIR/env/scout-ops.env"
 HOST="${SCOUT_MONITOR_HOST:-127.0.0.1}"
 PORT="${SCOUT_MONITOR_PORT:-18080}"
 

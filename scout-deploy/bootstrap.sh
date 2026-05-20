@@ -19,7 +19,7 @@ copy_if_missing() {
   fi
 }
 
-copy_if_missing "$DEPLOY_DIR/env/scout-hub.env.example" "$DEPLOY_DIR/env/scout-hub.env"
+copy_if_missing "$DEPLOY_DIR/env/scout-ops.env.example" "$DEPLOY_DIR/env/scout-ops.env"
 copy_if_missing "$DEPLOY_DIR/env/scout-media.env.example" "$DEPLOY_DIR/env/scout-media.env"
 copy_if_missing "$DEPLOY_DIR/env/scout-wchat.env.example" "$DEPLOY_DIR/env/scout-wchat.env"
 
@@ -51,7 +51,7 @@ install_project() {
   fi
 }
 
-install_project "$ROOT_DIR/scout-hub" "scout-hub"
+install_project "$ROOT_DIR/scout-ops" "scout-ops"
 install_project "$ROOT_DIR/scout-media-agents" "scout-media-agents"
 install_project "$ROOT_DIR/scout-wchat-agents" "scout-wchat-agents"
 

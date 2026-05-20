@@ -1,7 +1,7 @@
 // Task pack ingestion: project-side teams drop YAML files under
 // scout/inbox/projects/<projectId>/task-packs/*.yaml to register new
 // topics + seeds without touching the scout-lab repo directly. The
-// scout-hub `inbox` CLI reads them, validates the schema, previews
+// scout-ops `inbox` CLI reads them, validates the schema, previews
 // the diff against scout-media-agents config, and (on sync) merges
 // the topic into scout-topics.json and seeds into trend-seeds.csv,
 // then archives the pack into _synced/ so it isn't re-applied.

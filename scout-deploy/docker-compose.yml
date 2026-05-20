@@ -63,20 +63,20 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  scout-hub-api:
+  scout-ops-api:
     build:
-      context: ../scout-hub
+      context: ../scout-ops
       dockerfile: Dockerfile
-    image: scout-hub:latest
+    image: scout-ops:latest
     restart: unless-stopped
     depends_on:
       mariadb:
         condition: service_healthy
     env_file:
-      - ./env/scout-hub.env
+      - ./env/scout-ops.env
     environment:
       SCOUT_PROJECT_ROOT: /workspace
-      SCOUT_STATE_DIR: /workspace/scout-hub/state
+      SCOUT_STATE_DIR: /workspace/scout-ops/state
       SCOUT_RUNTIME_ROOT: /workspace/scout-runtime
       SCOUT_VENDOR_ROOT: /workspace/scout-vendor
       SCOUT_MEDIACRAWLER_ROOT: /workspace/scout-vendor/mediacrawler
@@ -89,23 +89,23 @@ services:
     ports:
       - "127.0.0.1:18080:18080"
     volumes:
-      - ../scout-hub/state:/workspace/scout-hub/state
+      - ../scout-ops/state:/workspace/scout-ops/state
       - ../../scout:/workspace/scout-runtime
       - ../scout-media-agents:/workspace/scout-media-agents:ro
       - ../scout-vendor:/workspace/scout-vendor:ro
       - ../wechat-spider:/workspace/wechat-spider:ro
 
-  scout-hub-scheduler:
-    image: scout-hub:latest
+  scout-ops-scheduler:
+    image: scout-ops:latest
     restart: unless-stopped
     depends_on:
       mariadb:
         condition: service_healthy
     env_file:
-      - ./env/scout-hub.env
+      - ./env/scout-ops.env
     environment:
       SCOUT_PROJECT_ROOT: /workspace
-      SCOUT_STATE_DIR: /workspace/scout-hub/state
+      SCOUT_STATE_DIR: /workspace/scout-ops/state
       SCOUT_RUNTIME_ROOT: /workspace/scout-runtime
       SCOUT_VENDOR_ROOT: /workspace/scout-vendor
       SCOUT_MEDIACRAWLER_ROOT: /workspace/scout-vendor/mediacrawler
@@ -114,7 +114,7 @@ services:
       WECHAT_MYSQL_PORT: 3306
     command: ["npx", "tsx", "src/cli.ts", "scheduler"]
     volumes:
-      - ../scout-hub/state:/workspace/scout-hub/state
+      - ../scout-ops/state:/workspace/scout-ops/state
       - ../../scout:/workspace/scout-runtime
       - ../scout-media-agents:/workspace/scout-media-agents:ro
       - ../scout-vendor:/workspace/scout-vendor:ro

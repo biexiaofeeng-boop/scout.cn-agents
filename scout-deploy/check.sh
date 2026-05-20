@@ -46,7 +46,7 @@ check_cmd node
 check_cmd npm
 check_cmd curl
 
-for d in "$ROOT_DIR/scout-hub" "$ROOT_DIR/scout-media-agents" "$ROOT_DIR/scout-wchat-agents"; do
+for d in "$ROOT_DIR/scout-ops" "$ROOT_DIR/scout-media-agents" "$ROOT_DIR/scout-wchat-agents"; do
   if [ -f "$d/package.json" ]; then
     pass "project exists: $d"
   else
@@ -59,7 +59,7 @@ for d in "$ROOT_DIR/scout-hub" "$ROOT_DIR/scout-media-agents" "$ROOT_DIR/scout-w
   fi
 done
 
-for f in "$DEPLOY_DIR/env/scout-hub.env" "$DEPLOY_DIR/env/scout-media.env" "$DEPLOY_DIR/env/scout-wchat.env"; do
+for f in "$DEPLOY_DIR/env/scout-ops.env" "$DEPLOY_DIR/env/scout-media.env" "$DEPLOY_DIR/env/scout-wchat.env"; do
   if [ -f "$f" ]; then
     pass "env file exists: $f"
   else
@@ -67,12 +67,12 @@ for f in "$DEPLOY_DIR/env/scout-hub.env" "$DEPLOY_DIR/env/scout-media.env" "$DEP
   fi
 done
 
-if [ -f "$DEPLOY_DIR/env/scout-hub.env" ]; then
-  hub_pwd="$(read_env "$DEPLOY_DIR/env/scout-hub.env" WECHAT_MYSQL_PASSWD)"
+if [ -f "$DEPLOY_DIR/env/scout-ops.env" ]; then
+  hub_pwd="$(read_env "$DEPLOY_DIR/env/scout-ops.env" WECHAT_MYSQL_PASSWD)"
   if [ -z "$hub_pwd" ] || echo "$hub_pwd" | grep -qi 'CHANGE_ME'; then
-    warn "scout-hub mysql password still placeholder"
+    warn "scout-ops mysql password still placeholder"
   else
-    pass "scout-hub mysql password configured"
+    pass "scout-ops mysql password configured"
   fi
 fi
 

@@ -76,7 +76,7 @@ Do not schedule all game entries individually yet. Start from the four editorial
 `YOUTUBE_API_KEY` must be present in:
 
 ```text
-/Users/sourcefire/1data/scout-lab/scout-deploy/env/scout-hub.env
+/Users/sourcefire/1data/scout-lab/scout-deploy/env/scout-ops.env
 ```
 
 After changing it:

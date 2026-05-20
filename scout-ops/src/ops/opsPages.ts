@@ -966,6 +966,79 @@ function clientScript(): string {
       });
     }
 
+    function openMediaCrawlerDrawer(payload) {
+      if (!drawer || !drawerBody || !drawerActions || !drawerTitle) return;
+      const platformOptions = [
+        { id: "xhs", label: "小红书 (xhs)" },
+        { id: "dy", label: "抖音 (dy)" },
+        { id: "ks", label: "快手 (ks)" },
+        { id: "bili", label: "B 站 (bili)" },
+        { id: "wb", label: "微博 (wb)" },
+        { id: "tieba", label: "贴吧" },
+        { id: "zhihu", label: "知乎" },
+      ];
+      const variants = payload.seedQueryVariants || [];
+      drawerTitle.textContent = "Trigger MediaCrawler — " + (payload.name || payload.topicId);
+      drawerBody.innerHTML =
+        '<form id="mc-trigger-form" style="display:grid;gap:12px">' +
+          '<label>Platform' +
+            '<select name="mcPlatform">' +
+              platformOptions.map((p) => '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.label) + '</option>').join("") +
+            '</select>' +
+            '<small class="muted">MediaCrawler runs one task at a time; this triggers a search task.</small>' +
+          '</label>' +
+          '<label>Keywords<input name="mcKeywords" value="' + escapeHtml(payload.name || "") + '" placeholder="search terms" />' +
+            '<small class="muted">Sent to MediaCrawler as <code>keywords</code>. Default is the topic name.</small>' +
+            (variants.length > 0 ? '<div class="seed-variants" style="margin-top:6px"><span class="seed-hint">suggested:</span>' +
+              variants.map((v) => '<button type="button" class="chip" data-mc-variant>' + escapeHtml(v) + '</button>').join("") +
+              '</div>' : "") +
+          '</label>' +
+          '<label class="check"><input type="checkbox" name="mcEnableComments" checked /> <span>fetch comments</span></label>' +
+        '</form>' +
+        '<div id="mc-trigger-result" class="empty" style="margin-top:12px">Starts a MediaCrawler search task. Watch progress in its webui; once data lands on disk, ingest via Collection → mediacrawler.</div>';
+      drawerActions.innerHTML =
+        '<button type="button" data-mc-submit>Trigger Crawl</button>' +
+        '<button type="button" data-drawer-close class="pill secondary">Cancel</button>';
+      drawerBody.querySelectorAll("[data-mc-variant]").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          const input = drawerBody.querySelector("input[name=mcKeywords]");
+          if (input) input.value = chip.textContent || "";
+        });
+      });
+      drawerActions.querySelector("[data-mc-submit]")?.addEventListener("click", (e) => {
+        withButtonLock(e.currentTarget, "Starting…", async () => {
+          const form = document.getElementById("mc-trigger-form");
+          const result = document.getElementById("mc-trigger-result");
+          if (!form || !result) return;
+          const data = new FormData(form);
+          const requestPayload = {
+            platform: String(data.get("mcPlatform") || ""),
+            keywords: String(data.get("mcKeywords") || "").trim(),
+            crawlerType: "search",
+            enableComments: data.get("mcEnableComments") === "on",
+          };
+          result.className = "empty";
+          result.textContent = "Submitting to MediaCrawler…";
+          try {
+            const response = await fetch("/ops/mediacrawler/trigger", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(requestPayload),
+            });
+            const json = await response.json();
+            if (!response.ok) throw new Error(json.message || json.error || "trigger failed");
+            result.className = "empty ok";
+            result.innerHTML = "Started on MediaCrawler · platform=" + escapeHtml(json.platform) + " · keywords=" + escapeHtml(json.keywords) +
+              '<div class="muted" style="margin-top:6px;font-size:11px">' + escapeHtml(json.note || "") + '</div>';
+          } catch (error) {
+            result.className = "empty warn";
+            result.textContent = error instanceof Error ? error.message : String(error);
+          }
+        });
+      });
+      openDrawer();
+    }
+
     async function openScheduleDrawer(scheduleId) {
       if (!drawer || !drawerBody || !drawerActions || !drawerTitle) return;
       drawerTitle.textContent = "Schedule " + scheduleId;
@@ -1526,6 +1599,16 @@ function clientScript(): string {
         });
       });
 
+      document.querySelectorAll("[data-mc-trigger]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const raw = btn.getAttribute("data-mc-trigger") || "{}";
+          try {
+            const payload = JSON.parse(raw);
+            openMediaCrawlerDrawer(payload);
+          } catch (_) {}
+        });
+      });
+
       document.querySelectorAll("[data-provider-test]").forEach((button) => {
         button.addEventListener("click", () => withButtonLock(button, "Testing…", async () => {
           const id = button.getAttribute("data-provider-test");
@@ -1762,6 +1845,12 @@ export function renderTopicDetailPage(topic: OpsOverview["topics"][number], over
           name: topic.name,
           providers: channels.filter((c) => c.enabled && c.envState !== "missing").map((c) => c.id),
         }))}'>Run Now</button>
+        ${topic.dataSources.includes("mediacrawler") ? `<button type="button" class="secondary" data-mc-trigger='${h(JSON.stringify({
+          topicId: topic.id,
+          name: topic.name,
+          platforms: topic.platforms || [],
+          seedQueryVariants: topic.seedQueryVariants || [topic.name],
+        }))}'>Trigger MediaCrawler</button>` : ""}
         <a class="pill" href="/ops/topics">← Topics</a>
         <a class="pill" href="/ops/collection">Open Collection</a>
       </div>

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DEPLOY_DIR="$ROOT_DIR/scout-deploy"
-ENV_FILE="$DEPLOY_DIR/env/scout-hub.env"
+ENV_FILE="$DEPLOY_DIR/env/scout-ops.env"
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "[ERROR] env file missing: $ENV_FILE"
@@ -14,7 +14,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
-STATE_DIR="${SCOUT_STATE_DIR:-$ROOT_DIR/scout-hub/state}"
+STATE_DIR="${SCOUT_STATE_DIR:-$ROOT_DIR/scout-ops/state}"
 COUNTERS_FILE="$STATE_DIR/counters.json"
 META_FILE="$STATE_DIR/meta.json"
 DLQ_FILE="$STATE_DIR/dlq.jsonl"

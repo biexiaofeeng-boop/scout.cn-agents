@@ -1,4 +1,4 @@
-# scout-hub (TypeScript)
+# scout-ops (TypeScript)
 
 TS control-plane for staged migration (Phase A + Phase B):
 
@@ -12,7 +12,7 @@ TS control-plane for staged migration (Phase A + Phase B):
 ## Commands
 
 ```bash
-cd /Users/sourcefire/1data/scout-lab/scout-hub
+cd /Users/sourcefire/1data/scout-lab/scout-ops
 npm install
 npm run pipeline:once
 npm run api
@@ -56,7 +56,7 @@ SO2 actions are intentionally constrained:
 
 Copy `.env.example` to `.env` if needed.
 
-- `SCOUT_PROJECT_ROOT` default: parent dir of `scout-hub`
+- `SCOUT_PROJECT_ROOT` default: parent dir of `scout-ops`
 - `SCOUT_RUNTIME_ROOT` default: `/Users/sourcefire/1data/scout`
 - `SCOUT_VENDOR_ROOT` default: `../scout-vendor`
 - `SCOUT_MEDIACRAWLER_ROOT` default: `../scout-vendor/mediacrawler`
@@ -73,7 +73,7 @@ Copy `.env.example` to `.env` if needed.
 - `SCOUT_MONITOR_PORT` default: `18080`
 - `YOUTUBE_API_KEY` optional: required only for live YouTube collection
 
-State files are persisted under `scout-hub/state/`.
+State files are persisted under `scout-ops/state/`.
 
 ## Scheduling (SO3)
 

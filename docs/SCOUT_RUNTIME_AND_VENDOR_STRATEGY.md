@@ -61,11 +61,11 @@ It should contain:
 
 It should not contain business-specific analysis logic.
 
-### `scout-hub`
+### `scout-ops`
 
 Aggregation and service boundary.
 
-`scout-hub` should provide:
+`scout-ops` should provide:
 
 - ingest pipeline
 - idempotency

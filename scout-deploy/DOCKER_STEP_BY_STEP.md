@@ -19,7 +19,7 @@ cd /Users/sourcefire/1data/scout-lab/scout-deploy
 
 编辑：
 
-- `/Users/sourcefire/1data/scout-lab/scout-deploy/env/scout-hub.env`
+- `/Users/sourcefire/1data/scout-lab/scout-deploy/env/scout-ops.env`
 - `/Users/sourcefire/1data/scout-lab/scout-deploy/env/scout-wchat.env`
 
 要求：
@@ -49,8 +49,8 @@ cd /Users/sourcefire/1data/scout-lab/scout-deploy
 - `mariadb`
 - `redis`
 - `wechat-spider`
-- `scout-hub-api`
-- `scout-hub-scheduler`
+- `scout-ops-api`
+- `scout-ops-scheduler`
 
 ## Step 5: 查看运行状态
 
@@ -66,7 +66,7 @@ cd /Users/sourcefire/1data/scout-lab/scout-deploy
 
 ```bash
 ./docker-logs.sh
-./docker-logs.sh scout-hub-api
+./docker-logs.sh scout-ops-api
 ./docker-logs.sh wechat-spider
 ```
 

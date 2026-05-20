@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DEPLOY_DIR="$ROOT_DIR/scout-deploy"
-HUB_DIR="$ROOT_DIR/scout-hub"
+HUB_DIR="$ROOT_DIR/scout-ops"
 
 load_env() {
   local f="$1"
@@ -21,7 +21,7 @@ load_env() {
   fi
 }
 
-load_env "$DEPLOY_DIR/env/scout-hub.env"
+load_env "$DEPLOY_DIR/env/scout-ops.env"
 
 if [ ! -d "$HUB_DIR/node_modules" ]; then
   echo "[ERROR] missing dependencies: $HUB_DIR/node_modules"

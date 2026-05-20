@@ -4,7 +4,7 @@ Date: 2026-05-18
 
 ## Goal
 
-Build the first production-operations UI for Scout as a readonly console inside `scout-hub`.
+Build the first production-operations UI for Scout as a readonly console inside `scout-ops`.
 
 The console must help operators understand whether Scout is ready to run and what data artifacts already exist, without requiring CLI spelunking.
 
@@ -54,7 +54,7 @@ This is the minimum UI needed before regular operations.
 
 ## Architecture Decision
 
-Use `scout-hub` server-rendered HTML first.
+Use `scout-ops` server-rendered HTML first.
 
 Reasons:
 
@@ -65,16 +65,16 @@ Reasons:
 
 ## Deliverables
 
-1. `scout-hub/src/ops/types.ts`
-2. `scout-hub/src/ops/runtimeScanner.ts`
-3. `scout-hub/src/ops/opsService.ts`
-4. `scout-hub/src/ops/opsPages.ts`
-5. `scout-hub/src/server.ts` route integration
+1. `scout-ops/src/ops/types.ts`
+2. `scout-ops/src/ops/runtimeScanner.ts`
+3. `scout-ops/src/ops/opsService.ts`
+4. `scout-ops/src/ops/opsPages.ts`
+5. `scout-ops/src/server.ts` route integration
 6. README updates
 
 ## Acceptance Criteria
 
-- `npm run check` passes in `scout-hub`
+- `npm run check` passes in `scout-ops`
 - `GET /ops/overview.json` returns JSON with topics, providers, hub health, recent runs, and runtime artifacts
 - `GET /ops` returns readable HTML without external assets
 - Missing runtime files are shown as missing, not treated as fatal errors
@@ -83,6 +83,6 @@ Reasons:
 
 ## Risk Notes
 
-- Provider registry currently lives in `scout-vendor`, not `scout-hub`. SO1 can read lightweight static metadata or import with care. Avoid creating tight runtime coupling that breaks Docker.
+- Provider registry currently lives in `scout-vendor`, not `scout-ops`. SO1 can read lightweight static metadata or import with care. Avoid creating tight runtime coupling that breaks Docker.
 - Runtime root defaults to `/Users/sourcefire/1data/scout`; in Docker, this path may not exist unless mounted. SO1 must degrade gracefully.
 - This UI is an operations aid, not the source of truth. Source remains topic config, provider registry, runtime artifacts, and hub state.
