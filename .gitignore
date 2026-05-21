@@ -28,6 +28,7 @@ intel_hub/state/*.jsonl
 # Env files
 ops/env/*.env
 scout-deploy/env/*.env
+scout-deploy/env/**/*.env
 scout-vendor/mediacrawler/.env
 
 # Vendor runtime artifacts
