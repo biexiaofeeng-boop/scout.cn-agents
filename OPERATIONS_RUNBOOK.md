@@ -193,18 +193,23 @@ scout-ops 启动时按以下顺序加载 env，**前面的优先**：
 
 ```
 scout-lab/                                  ← 代码 + 配置（git 内）
-├── scout-ops/                              ← TS 控制平面
-├── scout-vendor/                           ← 公开 API connectors + mediacrawler 镜像
-├── scout-media-agents/config/topics/       ← scout-topics.json
-├── scout-media-agents/config/trend-seeds.csv
-├── scout-deploy/                           ← docker compose + env files
-└── ...
+├── scout-ops/                              ← TS 控制平面（Ops Console）
+├── scout-vendor/                           ← provider connectors + mediacrawler 镜像
+├── scout-media-agents/                     ← 治理包（topic / seed / 扩词）
+├── scout-deploy/                           ← docker compose + env 文件
+├── wechat-spider/                          ← 微信公众号爬虫（独立子项目）
+├── docs/                                   ← 架构 / 迁移 / 运营文档
+├── obscura/                                ← 本地实验 Rust 浏览器（gitignored）
+├── README.md / OPERATIONS_RUNBOOK.md
+└── LICENSE / NOTICE / .gitignore
 
-scout/                                       ← 运行时（git 外，定期备份）
+/Users/sourcefire/1data/scout/              ← 运行时（git 外，定期备份）
 ├── runs/scout_run_*/                       ← 每次 run 的 summary + logs + items
 ├── topics/<vertical>/<topicId>/            ← raw / normalized / handoff
+├── projects/<projectId>/                   ← 项目隔离运行时
 ├── review-queue/review_scout_run_*.json    ← 审阅记录
-└── schedules/schedule_*.json               ← 定时配置
+├── schedules/schedule_*.json               ← 定时配置
+└── inbox/projects/<projectId>/task-packs/  ← 新 topic 提交入口
 ```
 
 ---

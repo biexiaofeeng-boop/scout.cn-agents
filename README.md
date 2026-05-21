@@ -20,27 +20,39 @@ Current priority domains:
 
 | Path | Role | Current status |
 | --- | --- | --- |
-| `scout-vendor/` | Unified data acquisition boundary. Owns first-party provider wrappers and isolated third-party crawler code. | Active. Contains MediaCrawler and Steam/YouTube/Reddit wrappers. |
-| `scout-media-agents/` | TopicOps control plane. Owns topic catalog, seeds, expansion, review, schedule planning, and trend-signal export contracts. | Active TypeScript package. |
-| `scout-ops/` | Aggregation/API/health/metrics boundary for normalized events and pipeline operations. | Active TypeScript service. |
-| `scout-wchat-agents/` | TypeScript adapter/control-plane work around WeChat collection. | Active adapter package. |
-| `wechat-spider/` | Existing WeChat crawler runtime. | Operational, but not physically moved under `scout-vendor` yet to avoid destabilizing Docker/runtime paths. |
-| `scout-deploy/` | Docker-based local runtime stack and service scripts. | Operational for local MySQL, Redis, hub, scheduler, and WeChat spider. |
-| `ops/` | Lightweight scan/start/status/stop helper scripts. | Legacy/simple local ops entry. |
-| `docs/` | Architecture, migration, operation, and issue-check documentation. | Active collaboration source. |
+| `scout-ops/` | TypeScript control plane. Ops Console (5-tab UI), schedules, review queue, run drawer, REST API on :18080. The operator entry point. | Active. |
+| `scout-vendor/` | Provider connectors (steam / youtube / reddit / mediacrawler ingest) plus the vendored MediaCrawler Python project. The "talk to upstream APIs" boundary. | Active. |
+| `scout-media-agents/` | Governance package: topic catalog (`config/topics/scout-topics.json`), seed registry (`config/trend-seeds.csv`), keyword expansion, backtest, runtime policies, review/governance helpers. | Active TS package. |
+| `scout-deploy/` | Docker compose stack + env files + start/stop/status scripts. The deployment boundary. | Active. |
+| `wechat-spider/` | Standalone WeChat Official Account crawler (mitmproxy + MariaDB). Driven by its own docker-compose service. | Active but independent (not part of the TS code path). |
+| `docs/` | Architecture, migration, operations, and design documents. | Active. |
+| `obscura/` | **Local-only experimental** Rust headless browser project under evaluation for crawler fingerprint dynamics. Not git-tracked — see "Local exploration" below. | Local sandbox, no production dependency. |
 
-Runtime/domain data should live outside this repository by default:
+Runtime/domain data lives outside this repository by design:
 
 ```text
 /Users/sourcefire/1data/scout/
-  topics/<vertical>/<topic-id>/raw/<provider>/
-  topics/<vertical>/<topic-id>/normalized/
-  topics/<vertical>/<topic-id>/handoff/
-  reports/
-  logs/
+  runs/scout_run_*/                       per-run summary + logs + items
+  review-queue/review_scout_run_*.json    one file per review item
+  schedules/schedule_*.json               one file per cron schedule
+  topics/<vertical>/<topic-id>/           raw / normalized / handoff
+  projects/<projectId>/                   same structure, scoped per project
+  inbox/projects/<projectId>/task-packs/  new-topic submissions from project teams
 ```
 
+See `/Users/sourcefire/1data/scout/README.md` for the runtime tree
+contract and `OPERATIONS_RUNBOOK.md` for the operator workflow.
+
 中文补充：`scout-lab` 放代码、配置、文档；`/Users/sourcefire/1data/scout` 放运行时 topic 数据、原始采集、清洗结果和 handoff。
+
+## Local exploration
+
+`obscura/` is an experimental Rust headless browser project we are
+evaluating for crawler fingerprint dynamics. It is **intentionally
+gitignored** while we test whether it can replace the
+Playwright-based stack inside MediaCrawler. Do not commit changes
+inside `obscura/`. Once the evaluation is conclusive, we will either
+adopt it as a proper vendored dependency or remove the directory.
 
 ## System Responsibilities
 
